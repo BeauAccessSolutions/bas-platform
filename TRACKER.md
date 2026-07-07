@@ -32,8 +32,9 @@ things move — this is the single place to see where everything stands.
 
 - **Phase 0 — Foundation** 🟡
   - ✅ Execution scoped ([docs/phase-0-execution.md](docs/phase-0-execution.md)) — owner split + decisions
-  - 🟡 Keycloak: local dev scaffolded ([identity/dev/](identity/dev/)) · ⬜ prod stand-up (needs host + domain)
-  - ⬜ Deploy CIT backend (currently local-only; see CIT `.do/app.yaml`)
+  - ✅ DO deploy runbooks written ([Keycloak](docs/deploy/keycloak-digitalocean.md) · [CIT backend](docs/deploy/cit-backend-digitalocean.md))
+  - 🟡 Keycloak: local dev scaffolded ([identity/dev/](identity/dev/)) · ⬜ prod stand-up on DO (needs Droplet + `id.` DNS)
+  - ⬜ Deploy CIT backend to DO App Platform (spec: CIT `.do/app.yaml`)
   - ⬜ Monorepo scaffold (pnpm + Turborepo) + Expo skeleton
   - ⬜ Port CIT themes → reusable a11y-first `ui` primitives
   - ⬜ CI a11y + import-boundary gates

@@ -25,13 +25,14 @@ OIDC contract + CIT login-path swap **before** paying for any hosting.
 - Blocker for you: just install Docker if you don't have it; then `docker compose up`.
 
 ### B. Identity — production Keycloak  ·  *needs you (infra) + me (config)*
-- ⬜ **Decision:** where it runs (see Decisions). Recommend a small DO Droplet or DO
-      App Platform service running the pinned Keycloak container + DO managed Postgres.
+- ✅ **Runbook written:** [deploy/keycloak-digitalocean.md](deploy/keycloak-digitalocean.md) (Droplet + Docker + Caddy, or App Platform).
+- ⬜ **Decision:** confirmed DO. Droplet recommended for admin-plane isolation (hardening §2).
 - ⬜ Domain: `id.beauaccesssolutions.com` (subdomain of the marketing domain), TLS.
 - ⬜ Execute the [hardening checklist](keycloak-setup-and-hardening.md) §1–§9.
 - ⬜ Apply the validated realm-as-code from workstream A.
 
 ### C. CIT backend deploy  ·  *needs you (infra) + me (spec/runbook)*
+- ✅ **Runbook written:** [deploy/cit-backend-digitalocean.md](deploy/cit-backend-digitalocean.md) (App Platform from `.do/app.yaml`).
 - CIT is local-only today; the deploy spec already exists (CIT `.do/app.yaml`).
 - ⬜ You: create the DO app from the spec, set real secrets (`DATABASE_URL`, CA cert,
       `ANTHROPIC_API_KEY` if enabling AI). I can write a step-by-step deploy runbook +
