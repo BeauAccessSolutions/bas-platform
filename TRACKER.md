@@ -41,8 +41,8 @@ things move — this is the single place to see where everything stands.
   - ⬜ `packages/auth` PKCE login + secure token storage
   - ⬜ Step-up (ACR) policy defined
 - **Phase 2 — CIT as resource server** ⬜
-  - ✅ Token-exchange spec written (CIT `docs/mobile/auth-token-exchange.md`)
-  - ⬜ Swap `requireAuth()` to token-exchange + own session
+  - 🟡 Token-exchange spec (CIT `docs/mobile/auth-token-exchange.md`) — drafted on branch, PR pending
+  - ⬜ Swap the **login path** (`login`/`signup` + OIDC callback) to Keycloak-verify → `createSession()`; per-request guard, ~30 routes, and 7 Server Components stay unchanged
   - ⬜ Keep rate-limiting / revocation / timing-equalized login
 - **Phase 3 — Rebuild CIT in Expo** ⬜
   - ⬜ Rebuild 7 screens + 3 auth flows in RN

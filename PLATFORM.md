@@ -105,11 +105,16 @@ tokens or data — the health/dating/benefits correlation lives only inside the 
 > Keycloak's JWKS, then mints its own session. No special Keycloak token-exchange
 > feature is required; don't reach for one.
 
-For CIT the migration surface is tiny: `requireAuth()` (CIT: `src/lib/auth/api.ts`) is
-the single guard every protected route funnels through. It stops validating CIT's own
-opaque token and instead accepts an identity token, exchanges it for a CIT data-access
-session, and validates that session — reusing the existing session machinery
-(CIT: `src/lib/auth/session.ts`). The 30+ route handlers don't change. Full spec:
+For CIT the migration surface is tiny — but it lives in the **login path, not the
+per-request guard**. CIT's own session layer (`src/lib/auth/session.ts` — hashed
+tokens, TTL, revocation) already *is* the app-owned data-access session this rule calls
+for, so it stays. Only session **establishment** changes: `createSession()` is called
+in exactly two places (`src/app/api/auth/login/route.ts` and `.../signup/route.ts`),
+plus a new OIDC callback — these swap *password-verification → `createSession()`* for
+*Keycloak-OIDC-verification → `createSession()`*. The per-request guard (`requireAuth()`
+/ `getAuthenticatedUserId()`), all ~30 route handlers, the 7 Server Components that read
+the session directly, and the edge middleware are **untouched**, and there is no
+per-request token exchange or JWKS call (that happens once, at login). Full spec:
 CIT repo `docs/mobile/auth-token-exchange.md`.
 
 ## 4. Platform invariants
