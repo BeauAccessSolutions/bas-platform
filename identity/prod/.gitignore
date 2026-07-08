@@ -1,0 +1,4 @@
+# Secrets + any realm export that embeds them — never commit.
+secrets.env
+bas-realm.json
+*.secret

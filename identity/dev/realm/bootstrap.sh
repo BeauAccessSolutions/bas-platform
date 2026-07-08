@@ -22,6 +22,13 @@ CIT_REDIRECT_WEB="${CIT_REDIRECT_WEB:-http://localhost:3000/api/auth/session*}"
 CIT_REDIRECT_NATIVE="${CIT_REDIRECT_NATIVE:-com.beauaccesssolutions.cit://oauth*}" # Expo AppAuth scheme
 ACCESS_TOKEN_LIFESPAN="${ACCESS_TOKEN_LIFESPAN:-300}"  # 5 min — short-lived identity token
 
+# Pairwise-sub salts (ADR-003). Dev defaults are placeholders; PROD MUST pass strong,
+# secret, STABLE per-client salts (see identity/prod/gen-secrets.sh).
+# ⚠️ Never rotate a live salt — it changes every user's `sub` and orphans each app's
+#    stored identity rows (KindredAccess KeycloakIdentity, CIT oidcSub, ...).
+CIT_PAIRWISE_SALT="${CIT_PAIRWISE_SALT:-cit-sector-salt-dev}"
+KA_PAIRWISE_SALT="${KA_PAIRWISE_SALT:-ka-sector-salt-dev}"
+
 # 1. Authenticate (dev creds; prod uses a locked-down admin — hardening §2).
 "$KC" config credentials --server http://localhost:8080 --realm master \
   --user "${KC_ADMIN:-admin}" --password "${KC_ADMIN_PASSWORD:-admin}"
@@ -30,6 +37,31 @@ ACCESS_TOKEN_LIFESPAN="${ACCESS_TOKEN_LIFESPAN:-300}"  # 5 min — short-lived i
 "$KC" create realms -s realm="$REALM" -s enabled=true \
   -s accessTokenLifespan="$ACCESS_TOKEN_LIFESPAN" \
   -s sslRequired=external || echo "realm may already exist"
+
+# 2b. Relax the declarative user profile: make firstName/lastName OPTIONAL (username +
+#     email stay required). KindredAccess has a single display_name — no first/last split
+#     (also more inclusive) — and Keycloak 24+ flags accounts missing required attributes
+#     as "not fully set up", which blocks login for migrated KA users (ADR-004). Verified
+#     against KC 26: with this relaxation a user with no last name authenticates fine.
+cat > /tmp/bas-user-profile.json <<'JSON'
+{
+  "attributes": [
+    { "name": "username", "displayName": "${username}",
+      "permissions": { "view": ["admin","user"], "edit": ["admin","user"] } },
+    { "name": "email", "displayName": "${email}",
+      "permissions": { "view": ["admin","user"], "edit": ["admin","user"] },
+      "required": { "roles": ["user"] },
+      "validations": { "email": {}, "length": { "max": 255 } } },
+    { "name": "firstName", "displayName": "${firstName}",
+      "permissions": { "view": ["admin","user"], "edit": ["admin","user"] } },
+    { "name": "lastName", "displayName": "${lastName}",
+      "permissions": { "view": ["admin","user"], "edit": ["admin","user"] } }
+  ]
+}
+JSON
+"$KC" update "users/profile" -r "$REALM" -f /tmp/bas-user-profile.json \
+  && echo "relaxed user profile: firstName/lastName optional" \
+  || echo "NOTE: user-profile update failed — verify kcadm path for your KC version"
 
 # 3. cit-web client: public, PKCE, standard flow only.
 CID=$("$KC" create clients -r "$REALM" \
@@ -53,7 +85,7 @@ echo "created cit-web client: $CID"
   -s name=pairwise-subject \
   -s protocol=openid-connect \
   -s protocolMapper=oidc-sha256-pairwise-sub-mapper \
-  -s 'config."pairwiseSubAlgorithmSalt"=cit-sector-salt-dev' \
+  -s "config.\"pairwiseSubAlgorithmSalt\"=$CIT_PAIRWISE_SALT" \
   -s 'config."id.token.claim"=true' \
   -s 'config."access.token.claim"=true' \
   || echo "pairwise mapper may already exist"
@@ -89,9 +121,16 @@ KA_CID=$("$KC" create clients -r "$REALM" \
   -i)
 echo "created kindredaccess-web client: $KA_CID"
 
-# Reveal the generated client secret (KindredAccess needs it as OIDC_RP_CLIENT_SECRET).
-"$KC" get "clients/$KA_CID/client-secret" -r "$REALM" \
-  && echo "^ set this as KindredAccess OIDC_RP_CLIENT_SECRET"
+# Client secret (KindredAccess needs it as OIDC_RP_CLIENT_SECRET). In prod, set it
+# explicitly from KA_CLIENT_SECRET (identity/prod/secrets.env) so the value is known and
+# reproducible; in dev, just reveal the auto-generated one.
+if [[ -n "${KA_CLIENT_SECRET:-}" ]]; then
+  "$KC" update "clients/$KA_CID" -r "$REALM" -s "secret=$KA_CLIENT_SECRET" \
+    && echo "set kindredaccess-web secret from KA_CLIENT_SECRET"
+else
+  "$KC" get "clients/$KA_CID/client-secret" -r "$REALM" \
+    && echo "^ dev: set this as KindredAccess OIDC_RP_CLIENT_SECRET"
+fi
 
 # Pairwise `sub` (ADR-003) — KA's sub never correlates with cit-web's.
 # (see the cit-web mapper above for the provider-id / salt rationale)
@@ -99,7 +138,7 @@ echo "created kindredaccess-web client: $KA_CID"
   -s name=pairwise-subject \
   -s protocol=openid-connect \
   -s protocolMapper=oidc-sha256-pairwise-sub-mapper \
-  -s 'config."pairwiseSubAlgorithmSalt"=ka-sector-salt-dev' \
+  -s "config.\"pairwiseSubAlgorithmSalt\"=$KA_PAIRWISE_SALT" \
   -s 'config."id.token.claim"=true' \
   -s 'config."access.token.claim"=true' \
   || echo "pairwise mapper may already exist"
