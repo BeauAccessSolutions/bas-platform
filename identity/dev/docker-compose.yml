@@ -39,6 +39,10 @@ services:
     volumes:
       # Drop an exported realm here (identity/dev/realm/bas-realm.json) to auto-import it.
       - ./realm:/opt/keycloak/data/import:ro
+      # The BAS accessible login theme (loginTheme=bas). Mounted read-only, same
+      # path as prod. start-dev does NOT cache themes, so edits show on reload;
+      # prod (`start`) DOES — see identity/themes/bas/login/README.md.
+      - ../themes:/opt/keycloak/themes:ro
     depends_on:
       db:
         condition: service_healthy
