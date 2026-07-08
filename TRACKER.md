@@ -41,14 +41,14 @@ what gets shipped; "Trigger" = how a deploy happens.
 | **Access Atlas** (access-directory) | Astro static (zero-JS) + Supabase | ⏳ **undecided** — data entity/hosting is an org/legal call, not a code one (README §13) | none committed | — | ⬜ | ⏳ **host not chosen** |
 | **a11y-probe** | Reddit Devvit app (client + server bundle) | **Reddit Devvit** platform | [`devvit.json`](repos/a11y-probe/devvit.json) | `devvit upload` / `publish` | Reddit-hosted | ⏳ **unborn repo**, not published |
 | **page-repair** (extension) | Browser extension (MV3) | **Chrome Web Store / AMO** | [`manifest.json`](repos/page-repair/manifest.json) v1.0.0 + icons · [`PRIVACY.md`](repos/page-repair/PRIVACY.md) · [`STORE_LISTING.md`](repos/page-repair/STORE_LISTING.md) · `dist/page-repair.zip` | store submission | store listing | 🟡 **submission-ready** · ⬜ not submitted (needs dev account + screenshots) |
-| **page-repair** (credit proxy) | Cloudflare Worker + KV | **Cloudflare Workers** | [`proxy/wrangler.jsonc`](repos/page-repair/proxy/wrangler.jsonc) | `wrangler deploy` (manual) | 🟢 <https://page-repair-proxy.airboat-webcast-5u.workers.dev> (`GET /` health ok) | 🟡 **live but inert** — deployed; `ANTHROPIC_API_KEY` secret still unset, so paid labeling 401s |
+| **page-repair** (credit proxy) | Cloudflare Worker + KV | **Cloudflare Workers** | [`proxy/wrangler.jsonc`](repos/page-repair/proxy/wrangler.jsonc) | `wrangler deploy` (manual) | 🟢 <https://page-repair-proxy.airboat-webcast-5u.workers.dev> (`GET /` health ok) | 🟢 **live & functional** — `ANTHROPIC_API_KEY` set; `/v1/label` verified end-to-end (token → credit spend → labels) |
 | **Marketing site** | Astro static | **Netlify** | [`netlify.toml`](repos/marketing-site/netlify.toml) — build `dist`, SPA redirect, security headers | Netlify git deploy | ⬜ | ⬜ **local only, unpushed** |
 | **Keycloak** (identity infra) | Self-hosted Keycloak + own DB | **DigitalOcean** (Droplet) | [docs/deploy/keycloak-digitalocean.md](docs/deploy/keycloak-digitalocean.md) | manual | ⬜ `id.<domain>` DNS TBD | ⬜ **prod not stood up** |
 
 **What this shows:**
 
 - **DigitalOcean is the platform default** — CIT, Benefits Navigator, KindredAccess, and Keycloak all target DO (App Platform for the first two, Droplets for KA + Keycloak).
-- **What's actually live today:** Benefits Navigator **staging**, and the **page-repair credit proxy** (Cloudflare Worker) — though the proxy is inert until its `ANTHROPIC_API_KEY` secret is set. Everything else is spec-ready, unpushed, unborn, or undecided.
+- **What's actually live today:** Benefits Navigator **staging**, and the **page-repair credit proxy** (Cloudflare Worker) — now fully functional (API key set, `/v1/label` verified end-to-end). Everything else is spec-ready, unpushed, unborn, or undecided.
 - **Two genuinely open hosting decisions:** Access Atlas (blocked on an org/legal data-entity call) and the marketing site (needs a repo — governance owns `Beau-Access-Solutions`; site needs e.g. `bas-website` — then a Netlify connect).
 - **No production DNS is wired for anything yet**, including the `id.` subdomain Keycloak needs before OIDC can go live.
 - **Non-server distribution:** a11y-probe ships through Reddit's Devvit platform and page-repair through browser extension stores — neither is a host we operate.
@@ -143,7 +143,7 @@ Setup & hardening steps live in **[docs/keycloak-setup-and-hardening.md](docs/ke
 - ⬜ **Existing-user migration** into Keycloak ([ADR-004](docs/adr/004-existing-user-migration.md)) — CIT reference runbook, then KA + Benefits Navigator. (KA code links legacy accounts by verified email at first login; the Keycloak-side import/hash step is still unbuilt.)
 - ⏳ **Benefits Navigator data posture** — veteran data may carry Privacy Act / VA obligations distinct from HIPAA; determine like CIT's HIPAA question.
 - 🟡 **page-repair store submission prepared** — v1.0.0 release manifest, icons, [PRIVACY.md](repos/page-repair/PRIVACY.md), [STORE_LISTING.md](repos/page-repair/STORE_LISTING.md), and `dist/page-repair.zip` are ready; **not submitted** (needs a Chrome Web Store dev account + real-page screenshots). Changes are uncommitted in the working tree.
-- ⏳ **page-repair proxy inert** — Cloudflare Worker is deployed and healthy but needs `wrangler secret put ANTHROPIC_API_KEY` before paid labeling works.
+- ✅ **page-repair proxy live** — Cloudflare Worker deployed, `ANTHROPIC_API_KEY` set, `/v1/label` verified end-to-end. Backend is usable; remaining page-repair work is the store submission above.
 - ⬜ **Marketing-site GitHub repo name** — governance owns `Beau-Access-Solutions`; the site needs a different repo name (e.g. `bas-website`) when pushed.
 - ⬜ Decide the shared-frontend repo name (`design-system`) when Phase 0 needs shared code.
 
