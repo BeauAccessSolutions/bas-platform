@@ -17,14 +17,14 @@ things move — this is the single place to see where everything stands.
 | **Benefits Navigator** | Candidate (sensitive) | Django + AI | `Beaudoin0zach/benefits_navigator` | ✅ branch pushed · ⬜ PR not opened | ⬜ |
 | **Access Atlas** (access-directory) | Member (identity) | Astro | `Beaudoin0zach/access-atlas` | ✅ pointer on `main` · 🟡 invariant branch pushed, PR not opened | 🟡 onboarded · invariants #2/#3/#4 ✅ · identity #1/#5 ⏳ |
 | **a11y-probe** | Standalone / CI a11y | Reddit Devvit | none | ⏳ untracked (unborn repo) | n/a |
-| **page-repair** | Standalone; patterns → `ui` | Browser extension | `LangworthyWatch/page-repair` | ✅ branch pushed · ⬜ PR not opened | n/a |
+| **page-repair** | Standalone; patterns → `ui` | Browser extension | `Beaudoin0zach/page-repair` (public; moved off `LangworthyWatch`) | ✅ `main` pushed to own account | n/a |
 | **Marketing site** | Company site (not a platform app) | Astro + Netlify | local only (unpushed) | — | n/a |
 
 **Pointer-PR rollout — all four are now clean one-commit branches off `main`, ready to open.** Open them here:
 - CIT — <https://github.com/kbeaudoin001/Chronic-Illness-Tracker/compare/main...docs/bas-platform-pointer> (rebased onto main + squashed)
 - KindredAccess — <https://github.com/Beaudoin0zach/kindredaccess/compare/main...docs/bas-platform-pointer> (direct merge-to-main blocked by safety classifier — open the PR, or add a Bash permission rule)
 - Benefits Navigator — <https://github.com/Beaudoin0zach/benefits_navigator/compare/main...docs/bas-platform-pointer> (rebased onto main)
-- page-repair — <https://github.com/LangworthyWatch/page-repair/compare/main...docs/bas-platform-pointer> (third-party repo)
+- page-repair — now `Beaudoin0zach/page-repair` (owned, private); pointer branch not yet created on the new remote
 
 ---
 
@@ -40,15 +40,15 @@ what gets shipped; "Trigger" = how a deploy happens.
 | **KindredAccess** | Django web backend + Capacitor mobile shell | **DigitalOcean Droplet** (Ubuntu 22.04, $12–18/mo) | [`DIGITAL_OCEAN_DEPLOYMENT.md`](repos/kindredaccess/DIGITAL_OCEAN_DEPLOYMENT.md) + `deploy/` systemd units (Gunicorn HTTP + **Daphne WebSockets**, nginx `/ws/` routing) — KA PR #3 | manual (SSH) | ⬜ DNS TBD | ⬜ **not deployed** (WS deploy config now correct) |
 | **Access Atlas** (access-directory) | Astro static (zero-JS) + Supabase | ⏳ **undecided** — data entity/hosting is an org/legal call, not a code one (README §13) | none committed | — | ⬜ | ⏳ **host not chosen** |
 | **a11y-probe** | Reddit Devvit app (client + server bundle) | **Reddit Devvit** platform | [`devvit.json`](repos/a11y-probe/devvit.json) | `devvit upload` / `publish` | Reddit-hosted | ⏳ **unborn repo**, not published |
-| **page-repair** (extension) | Browser extension (MV3) | **Chrome Web Store / AMO** | [`manifest.json`](repos/page-repair/manifest.json) v1.0.0 + icons · [`PRIVACY.md`](repos/page-repair/PRIVACY.md) · [`STORE_LISTING.md`](repos/page-repair/STORE_LISTING.md) · `dist/page-repair.zip` | store submission | store listing | 🟡 **submission-ready** · ⬜ not submitted (needs dev account + screenshots) |
-| **page-repair** (credit proxy) | Cloudflare Worker + KV | **Cloudflare Workers** | [`proxy/wrangler.jsonc`](repos/page-repair/proxy/wrangler.jsonc) | `wrangler deploy` (manual) | 🟢 <https://page-repair-proxy.airboat-webcast-5u.workers.dev> | 🟡 **live but inert** — `ANTHROPIC_API_KEY` secret unset; health-route change pending redeploy |
+| **page-repair** (extension) | Browser extension (MV3) | **Chrome Web Store / AMO** | [`manifest.json`](repos/page-repair/manifest.json) v1.0.0 + icons · [`PRIVACY.md`](repos/page-repair/PRIVACY.md) · [`STORE_LISTING.md`](repos/page-repair/STORE_LISTING.md) · `dist/page-repair.zip` | store submission | store listing | 🟡 **draft built, blocked on account verification** — dev account paid, 3× 1280×800 screenshots + listing/privacy staged; can't submit until Google verifies the (trader) account |
+| **page-repair** (credit proxy) | Cloudflare Worker + KV | **Cloudflare Workers** | [`proxy/wrangler.jsonc`](repos/page-repair/proxy/wrangler.jsonc) | `wrangler deploy` (manual) | 🟢 <https://page-repair-proxy.airboat-webcast-5u.workers.dev> (`GET /` health ok) | 🟢 **live & functional** — `ANTHROPIC_API_KEY` set; `/v1/label` verified end-to-end (token → credit spend → labels) |
 | **Marketing site** | Astro static | **Netlify** | [`netlify.toml`](repos/marketing-site/netlify.toml) — build `dist`, SPA redirect, security headers | Netlify git deploy | ⬜ | ⬜ **local only, unpushed** |
 | **Keycloak** (identity infra) | Self-hosted Keycloak + own DB | **DigitalOcean** (Droplet) | [docs/deploy/keycloak-digitalocean.md](docs/deploy/keycloak-digitalocean.md) | manual | ⬜ `id.<domain>` DNS TBD | ⬜ **prod not stood up** |
 
 **What this shows:**
 
 - **DigitalOcean is the platform default** — CIT, Benefits Navigator, KindredAccess, and Keycloak all target DO (App Platform for the first two, Droplets for KA + Keycloak).
-- **What's actually live today:** Benefits Navigator **staging**, and the **page-repair credit proxy** (Cloudflare Worker) — though the proxy is inert until its `ANTHROPIC_API_KEY` secret is set. Everything else is spec-ready, unpushed, unborn, or undecided.
+- **What's actually live today:** Benefits Navigator **staging**, and the **page-repair credit proxy** (Cloudflare Worker) — now fully functional (API key set, `/v1/label` verified end-to-end). Everything else is spec-ready, unpushed, unborn, or undecided.
 - **Two genuinely open hosting decisions:** Access Atlas (blocked on an org/legal data-entity call) and the marketing site (needs a repo — governance owns `Beau-Access-Solutions`; site needs e.g. `bas-website` — then a Netlify connect).
 - **No production DNS is wired for anything yet**, including the `id.` subdomain Keycloak needs before OIDC can go live.
 - **Non-server distribution:** a11y-probe ships through Reddit's Devvit platform and page-repair through browser extension stores — neither is a host we operate.
@@ -142,8 +142,8 @@ Setup & hardening steps live in **[docs/keycloak-setup-and-hardening.md](docs/ke
 - 🟡 **Cross-app correlation** — adopt pairwise `sub` ([ADR-003](docs/adr/003-pairwise-subject-identifiers.md)) before any app stores a shared identifier. **KA now stores a pairwise sub (verified in dev).** ⬜ enforce for `cit-web` and in prod (needs sector-identifier/salt strategy).
 - ⬜ **Existing-user migration** into Keycloak ([ADR-004](docs/adr/004-existing-user-migration.md)) — CIT reference runbook, then KA + Benefits Navigator. (KA code links legacy accounts by verified email at first login; the Keycloak-side import/hash step is still unbuilt.)
 - ⏳ **Benefits Navigator data posture** — veteran data may carry Privacy Act / VA obligations distinct from HIPAA; determine like CIT's HIPAA question.
-- 🟡 **page-repair store submission prepared** — v1.0.0 release manifest, icons, [PRIVACY.md](repos/page-repair/PRIVACY.md), [STORE_LISTING.md](repos/page-repair/STORE_LISTING.md), and `dist/page-repair.zip` are ready; **not submitted** (needs a Chrome Web Store dev account + real-page screenshots). Changes are uncommitted in the working tree.
-- ⏳ **page-repair proxy inert** — Cloudflare Worker is live but needs `wrangler secret put ANTHROPIC_API_KEY` (+ a redeploy of the pending health-route change) before paid labeling works.
+- ⏳ **page-repair store submission blocked on Google verification** — dev account paid; listing fully staged as a Web Store **draft** (package + copy from [STORE_LISTING.md](repos/page-repair/STORE_LISTING.md), privacy answers, 3× 1280×800 screenshots). Trader declared. **Cannot submit until Google verifies the account** (email + trader identity — the latter can take days). Extension verified working live (32/32 controls labeled on a real page).
+- ✅ **page-repair proxy live** — Cloudflare Worker deployed, `ANTHROPIC_API_KEY` set, `/v1/label` verified end-to-end. Backend is usable; remaining page-repair work is the store submission above.
 - ⬜ **Marketing-site GitHub repo name** — governance owns `Beau-Access-Solutions`; the site needs a different repo name (e.g. `bas-website`) when pushed.
 - ⬜ Decide the shared-frontend repo name (`design-system`) when Phase 0 needs shared code.
 
