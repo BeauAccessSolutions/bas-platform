@@ -76,6 +76,19 @@ flows are battle-tested rather than hand-rolled. Cost accepted: a heavier servic
 run/patch, and its login theme must be re-themed to pass each app's a11y bar (e.g.
 CIT's WCAG 2.2 AA).
 
+**Login is Keycloak-hosted, not re-implemented in the app.** Native (Expo) and web
+clients open Keycloak's hosted login page in the system browser via the standard
+Authorization-Code-+-PKCE (AppAuth) redirect; `packages/auth` orchestrates the PKCE
+flow and secure token storage — it does **not** render a custom username/password form.
+A custom in-app credential form would defeat federation, 2FA, and step-up, and is
+treated as an anti-pattern. This is why Keycloak's *login theme* (not an app screen) is
+the surface that must pass each app's a11y bar.
+
+**Per-app pseudonymous identity.** Each OIDC client receives a different, stable
+pairwise `sub` for the same user, so no two apps can correlate a shared user from
+tokens or data — the health/dating/benefits correlation lives only inside the IdP. See
+[ADR-003](docs/adr/003-pairwise-subject-identifiers.md).
+
 ## 3. The layered-session rule (the core auth invariant)
 
 **Federate authentication; never surrender the sensitive-data session.**
@@ -87,11 +100,21 @@ CIT's WCAG 2.2 AA).
 - So a stolen identity token does **not** hand an attacker an app's sensitive-data
   session; the app keeps its own revocation, throttling, and timing-equalized login.
 
-For CIT the migration surface is tiny: `requireAuth()` (CIT: `src/lib/auth/api.ts`) is
-the single guard every protected route funnels through. It stops validating CIT's own
-opaque token and instead accepts an identity token, exchanges it for a CIT data-access
-session, and validates that session — reusing the existing session machinery
-(CIT: `src/lib/auth/session.ts`). The 30+ route handlers don't change. Full spec:
+> **"Exchange" here means validate-then-establish-a-local-session** — not RFC 8693
+> token exchange. The app verifies the OIDC token's signature and claims against
+> Keycloak's JWKS, then mints its own session. No special Keycloak token-exchange
+> feature is required; don't reach for one.
+
+For CIT the migration surface is tiny — but it lives in the **login path, not the
+per-request guard**. CIT's own session layer (`src/lib/auth/session.ts` — hashed
+tokens, TTL, revocation) already *is* the app-owned data-access session this rule calls
+for, so it stays. Only session **establishment** changes: `createSession()` is called
+in exactly two places (`src/app/api/auth/login/route.ts` and `.../signup/route.ts`),
+plus a new OIDC callback — these swap *password-verification → `createSession()`* for
+*Keycloak-OIDC-verification → `createSession()`*. The per-request guard (`requireAuth()`
+/ `getAuthenticatedUserId()`), all ~30 route handlers, the 7 Server Components that read
+the session directly, and the edge middleware are **untouched**, and there is no
+per-request token exchange or JWKS call (that happens once, at login). Full spec:
 CIT repo `docs/mobile/auth-token-exchange.md`.
 
 ## 4. Platform invariants
@@ -103,7 +126,10 @@ See **[INVARIANTS.md](INVARIANTS.md)** for the enforced-by-construction detail. 
 4. **Contribution boundary** — sensitive backends in their own repos behind review; shared packages open.
 5. **i18n ownership** — no hardcoded strings in `ui`; per-app catalogs + human-review gates.
 
-These map directly onto each app's own non-negotiables and never relax them.
+These map directly onto each app's own non-negotiables and never relax them. See also
+[ADR-003](docs/adr/003-pairwise-subject-identifiers.md) (per-app pairwise `sub`, no
+cross-app correlation) and [ADR-004](docs/adr/004-existing-user-migration.md)
+(migrating existing accounts into Keycloak without a mass reset).
 
 ## 5. Sequencing — CIT is app #1
 
@@ -137,3 +163,5 @@ claim to leading (it was going to *host* identity). CIT leads because:
 - **Re-verify accessibility, don't assume it.** RN Web ≠ hand-authored WCAG-audited HTML; the axe gate must pass again on the new stack. Non-negotiable.
 - **Over-building the platform before app #1 ships** is the failure mode. CIT-first discipline is the guardrail.
 - **Keycloak operational hardening** — a self-run service in the auth path: patching, admin-console lockdown, login-theme a11y are ongoing owner work.
+- **The IdP is the platform's single point of failure — plan its availability, not just its hardening.** Keycloak DB backup/restore (losing it loses all federated identity), token signing-key rotation, and an availability target are Phase-0 deliverables, not afterthoughts. Mitigating property worth noting: because of layered sessions (§3), a brief IdP outage does **not** log everyone out — apps hold their own data-access sessions; only *new* logins and token refresh fail while it's down.
+- **Existing users must be migrated, not stranded.** CIT, KA, and Benefits Navigator have live accounts; onboarding each to Keycloak is a real workstream ([ADR-004](docs/adr/004-existing-user-migration.md)), gated ahead of that app's `requireAuth()` swap.
