@@ -39,6 +39,75 @@ ACCESS_TOKEN_LIFESPAN="${ACCESS_TOKEN_LIFESPAN:-300}"  # 5 min — short-lived i
   -s loginTheme=bas \
   -s sslRequired=external || echo "realm may already exist"
 
+# 2b. Declarative user profile: make first/last name OPTIONAL (BAS ADR-004).
+#     KindredAccess migrates accounts that carry a single display_name (no
+#     first/last split — the platform's inclusive one-name model). Keycloak 24+'s
+#     declarative user profile marks firstName/lastName required by default and
+#     flags such accounts "not fully set up", BLOCKING login after partialImport.
+#     This replaces the default profile with one where both are optional (the
+#     "required" block is simply omitted); username/email keep their defaults.
+#     Verified against KC 26's default users/profile shape — re-diff on upgrade.
+UP_JSON=$(mktemp)
+cat > "$UP_JSON" <<'PROFILE'
+{
+  "attributes": [
+    {
+      "name": "username",
+      "displayName": "${username}",
+      "validations": {
+        "length": { "min": 3, "max": 255 },
+        "username-prohibited-characters": {},
+        "up-username-not-idn-homograph": {}
+      },
+      "permissions": { "view": ["admin", "user"], "edit": ["admin", "user"] },
+      "multivalued": false
+    },
+    {
+      "name": "email",
+      "displayName": "${email}",
+      "validations": {
+        "email": {},
+        "length": { "max": 255 }
+      },
+      "required": { "roles": ["user"] },
+      "permissions": { "view": ["admin", "user"], "edit": ["admin", "user"] },
+      "multivalued": false
+    },
+    {
+      "name": "firstName",
+      "displayName": "${firstName}",
+      "validations": {
+        "length": { "max": 255 },
+        "person-name-prohibited-characters": {}
+      },
+      "permissions": { "view": ["admin", "user"], "edit": ["admin", "user"] },
+      "multivalued": false
+    },
+    {
+      "name": "lastName",
+      "displayName": "${lastName}",
+      "validations": {
+        "length": { "max": 255 },
+        "person-name-prohibited-characters": {}
+      },
+      "permissions": { "view": ["admin", "user"], "edit": ["admin", "user"] },
+      "multivalued": false
+    }
+  ],
+  "groups": [
+    {
+      "name": "user-metadata",
+      "displayHeader": "User metadata",
+      "displayDescription": "Attributes, which refer to user metadata"
+    }
+  ]
+}
+PROFILE
+"$KC" update "realms/$REALM/users/profile" -f "$UP_JSON" \
+  && echo "user profile updated: firstName/lastName optional (ADR-004)" \
+  || echo "WARNING: user-profile update failed — KA-migrated accounts will be blocked at login"
+rm -f "$UP_JSON"
+
 # 3. cit-web client: public, PKCE, standard flow only.
 CID=$("$KC" create clients -r "$REALM" \
   -s clientId=cit-web \
@@ -126,6 +195,10 @@ cat <<EOF
 Done (reference run). Next:
   - Enable 2FA/step-up + apply the accessible login theme (hardening §5, §6).
   - Add a test user with a verified email.
+  - KA migration (ADR-004): partialImport KA's export_keycloak_users JSON and
+    round-trip one migrated login (correct password accepted, wrong rejected,
+    no "account not fully set up" prompt — that means the user-profile step
+    above didn't apply).
   - Export the realm and commit it as the authoritative config:
       $KC get realms/$REALM -r $REALM > /opt/keycloak/data/import/realm/bas-realm.json
   - Set CIT env: KEYCLOAK_ISSUER=<issuer>/realms/$REALM, KEYCLOAK_CLIENT_ID=cit-web
