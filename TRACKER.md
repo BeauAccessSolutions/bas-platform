@@ -3,7 +3,7 @@
 Living status board for the Beau Access Solutions accessibility-app platform. Update as
 things move — this is the single place to see where everything stands.
 
-**Last updated:** 2026-07-08 (reconciled against real repo state via `scripts/platform-status.sh`)
+**Last updated:** 2026-07-09 (reconciled against real repo state via `/platform-status`)
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started · ⏳ blocked / waiting on input
 
 ---
@@ -15,7 +15,7 @@ things move — this is the single place to see where everything stands.
 | **Chronic Illness Tracker** | App #1 (PHI) | Next.js + Postgres | `Beaudoin0zach/Chronic-Illness-Tracker` | ✅ branch pushed · ✅ **pointer PR open** | 🟡 leading |
 | **KindredAccess** | App #2 | Django + Channels | `Beaudoin0zach/kindredaccess` | ✅ branch pushed · ✅ **pointer PR #2 open** | 🟡 OIDC RP integrated ahead of seq. (PR #4) |
 | **Benefits Navigator** | Candidate (sensitive) | Django + AI | `Beaudoin0zach/benefits_navigator` | ✅ branch pushed · ✅ **pointer PR #23 open** (+ 10 other open PRs incl. #20 privacy-hardening, #22 governance, #24 membership) | ⬜ |
-| **Access Atlas** (access-directory) | Member (identity) | Astro | `Beaudoin0zach/access-atlas` | ✅ pointer on `main` · ✅ **invariant PR #1 open** | 🟡 onboarded · invariants #2/#3/#4 ✅ · identity #1/#5 ⏳ |
+| **Access Atlas** (access-directory) | Member (identity) | Astro | `Beaudoin0zach/access-atlas` | ✅ pointer on `main` · ✅ **invariant PR #1 open** | 🟡 onboarded · invariants #2/#3/#4 ✅ · identity #1 🟡 (drop-in Keycloak BFF auth on branch) · #5 ⏳ |
 | **a11y-probe** | Standalone / CI a11y | Reddit Devvit | none | ⏳ untracked (unborn repo) | n/a |
 | **page-repair** | Standalone; patterns → `ui` | Browser extension | `LangworthyWatch/page-repair` (canonical) · `Beaudoin0zach/page-repair` (origin) | ✅ branch pushed · ⏳ pointer PR status unverifiable from this account | n/a |
 | **Marketing site** | Company site (not a platform app) | Astro + Netlify | local only (unpushed) | — | n/a |
@@ -128,19 +128,20 @@ Setup & hardening steps live in **[docs/keycloak-setup-and-hardening.md](docs/ke
   - ✅ **CI backstop** — `.github/workflows/ci.yml` runs lint + 188 tests + build on every push/PR to `main` (there was none). Doubles as the a11y/import-boundary gate seam for Phase 0.
   - ✅ **Change-password + "log out other devices"** — new endpoints wired into Settings; first real trigger for session revocation. (Password login is retired later once Keycloak is live — Phase 2.)
   - ✅ **macOS PHI pre-commit hook** — was a silent no-op (`grep -P` on BSD grep); reimplemented in python3.
-  - ⏳ **Still blocking a first deploy:** security-audit batches 1–4 (`fix/security-audit-batch-4`) + this branch must merge to `main` before DO builds anything (DO deploys from `main`; nothing is live yet). **Rotate the Anthropic API key** (real key in local `.env`). Lower-severity open: signup email-enumeration (`409`), no scheduled AI-retention job.
+  - ✅ **Security-audit batches 1–4 are now merged to `main`** (`fix/security-audit-batch-1..4`), so that gate is cleared. `chore/launch-prep` itself may still be unmerged. Still to do before a live deploy: **rotate the Anthropic API key** (real key in local `.env`), and no scheduled AI-retention job yet.
+  - ✅ **Signup account-enumeration closed** — email-verification signup via Postmark (**CIT PR #2**, `feat/email-verification`, open + mergeable). Replaces the `409 email_taken` oracle with a uniform `202`; login now blocked until verified. ⚠ **Deploy gate:** the live app needs `EMAIL_PROVIDER=postmark` + `POSTMARK_API_TOKEN` + `EMAIL_FROM` set or **no one can sign in** (main has `deploy_on_push`).
 - ✅ **access-directory (Access Atlas) now has a remote** — `Beaudoin0zach/access-atlas` (public), onboarded on `main` with a governance pointer + inlined invariants (`docs/platform-membership.md`). Scoped as a full identity member: browsing stays account-free; identity gates contribution only; browsing surface stays Astro/zero-JS (no RN rewrite).
 - 🟡 **Access Atlas app-side invariants — 3 of 5 landed on a branch** (`platform-seed-and-data-rights`, pushed; **PR #1 open** — <https://github.com/Beaudoin0zach/access-atlas/pull/1>):
   - ✅ **#2 tracking/CSP** — own CSP + security headers (one policy, applied as `<meta>` for static pages + HTTP headers for SSR); `script-src 'none'` makes its zero-JS surface self-enforcing.
   - ✅ **#3 decoupled delete/export** — complete, independently-callable workflow (`src/lib/data-rights.ts` + ops CLI, storage-aware, idempotent, unit-tested), keyed by contributor id so the Keycloak `sub` drops in unchanged. Self-service UI door deferred to the authenticated contribute milestone.
   - ✅ **#4 contribution boundary** — `.github/CODEOWNERS` on the write path, service-role client, identity seam, and safety-critical SQL (needs "Require review from Code Owners" toggled on in branch protection).
-  - ⏳ **#1 layered sessions** and **#5 i18n** remain pending Keycloak (Phase 0/1). Also on the branch: a WNY seed-data importer (creates self-reported data only).
+  - 🟡 **#1 layered sessions** now underway — a **drop-in Keycloak contributor auth (server-side BFF)** landed on the branch. ⏳ **#5 i18n** still pending Keycloak (Phase 0/1). Also on the branch: a WNY seed-data importer (creates self-reported data only).
 - ⏳ **a11y-probe is an unborn repo** (0 commits, no remote); pointer sits untracked until it's initialized.
 - 🟡 **Merge the pointer PRs** — CIT #1, KindredAccess #2, Benefits Navigator #23, and Access Atlas #1 are **open** (links in §1); page-repair's is unverifiable from this account. Next action is review + merge, not opening.
 - ✅ **Push governance repo** — done (`main` live).
 - 🟡 **KindredAccess OIDC integration** (2026-07-08) — Django resource server done and verified end-to-end vs dev Keycloak (branch `feat/bas-keycloak-oidc`, KA PR #4). Stores a pairwise `sub` on a new `KeycloakIdentity` model; inert until configured. While verifying, **fixed the dev-realm pairwise mapper** in `identity/dev/realm/bootstrap.sh` for **both** `cit-web` and `kindredaccess-web` — the reference used `oidc-sub-mapper` (non-pairwise, sub = raw user id) instead of `oidc-sha256-pairwise-sub-mapper`. Separately, KA's WebSocket deploy config was corrected (Gunicorn+Daphne, KA PR #3). ⬜ Existing-user migration for KA still pending (below).
 - 🟡 **Cross-app correlation** — adopt pairwise `sub` ([ADR-003](docs/adr/003-pairwise-subject-identifiers.md)) before any app stores a shared identifier. **KA now stores a pairwise sub (verified in dev).** ⬜ enforce for `cit-web` and in prod (needs sector-identifier/salt strategy).
-- 🟡 **Existing-user migration** into Keycloak ([ADR-004](docs/adr/004-existing-user-migration.md)) — CIT reference runbook, then KA + Benefits Navigator. (KA code links legacy accounts by verified email at first login.) KA now has a **`feat/ka-user-migration` branch** with a Keycloak user-migration **export command** (ADR-004) — currently local/**unpushed**, not yet a PR. Import/hash side still pending.
+- 🟡 **Existing-user migration** into Keycloak ([ADR-004](docs/adr/004-existing-user-migration.md)) — CIT reference runbook, then KA + Benefits Navigator. (KA code links legacy accounts by verified email at first login.) KA's Keycloak user-migration **export command** (ADR-004) is now **merged to `main`** (KA PR #5, which also landed an automated vision first-pass for photo moderation). Import/hash side still pending.
 - ⏳ **Benefits Navigator data posture** — veteran data may carry Privacy Act / VA obligations distinct from HIPAA; determine like CIT's HIPAA question.
 - 🟡 **page-repair store submission prepared** — v1.0.0 release manifest, icons, [PRIVACY.md](repos/page-repair/PRIVACY.md), [STORE_LISTING.md](repos/page-repair/STORE_LISTING.md), and `dist/page-repair.zip` are ready; **not submitted** (needs a Chrome Web Store dev account + real-page screenshots). Changes are uncommitted in the working tree.
 - ⏳ **page-repair proxy inert** — Cloudflare Worker is live but needs `wrangler secret put ANTHROPIC_API_KEY` (+ a redeploy of the pending health-route change) before paid labeling works.
