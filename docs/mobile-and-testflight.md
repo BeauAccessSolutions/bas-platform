@@ -70,10 +70,12 @@ so it's a no-op there until that screen is ported.)
   under App Store **Guideline 4.2**. Internal TestFlight (≤100 testers) is fine.
   Clearing external review needs the camera evidence-photo feature
   (`access-directory` iOS runbook).
-- **Mobile source is unbacked (⚠️):** `bas-apps`, `kindredaccess-ios`,
-  `bas-frontend`, and `access-atlas-mobile` have **no git remote** — local-only,
-  lost if the machine dies. Push them (naming/visibility is a call to make, like
-  a11y-probe). Tracked in [TRACKER.md §6](../TRACKER.md).
+- **Mobile source backup — partly done:** `bas-apps` (the Baseline/CIT app **plus**
+  the shared `ui`/`auth`/`tokens`/`i18n`/`api` packages) is now pushed to
+  **`Beaudoin0zach/bas-apps`** (private, 2026-07-14). Still **unbacked** (no git
+  remote — local-only, lost if the machine dies): `kindredaccess-ios`,
+  `bas-frontend`, and the abandoned `access-atlas-mobile`. Tracked in
+  [TRACKER.md §6](../TRACKER.md).
 - **`access-atlas-mobile` is abandoned** — a separate Expo attempt with a single
   "Initial commit". The real Access Atlas TestFlight build is the Capacitor
   wrapper in `access-directory`, not this.
