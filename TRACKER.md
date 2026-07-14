@@ -3,7 +3,7 @@
 Living status board for the Beau Access Solutions accessibility-app platform. Update as
 things move — this is the single place to see where everything stands.
 
-**Last updated:** 2026-07-09 (reconciled against real repo state via `/platform-status`)
+**Last updated:** 2026-07-14 (reconciled against real repo state via `/platform-status`)
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started · ⏳ blocked / waiting on input
 
 ---
@@ -12,11 +12,11 @@ things move — this is the single place to see where everything stands.
 
 | App | Platform role | Stack | Remote | CLAUDE.md pointer | Onboarding |
 |---|---|---|---|---|---|
-| **Chronic Illness Tracker** | App #1 (PHI) | Next.js + Postgres | `Beaudoin0zach/Chronic-Illness-Tracker` | ✅ pointer **merged to `main`** (PR #1) | 🟡 leading |
+| **Chronic Illness Tracker** | App #1 (PHI) | Next.js + Postgres | `Beaudoin0zach/Chronic-Illness-Tracker` (origin) · also old remote `kbeaudoin001/Chronic-Illness-Tracker` | ✅ pointer **merged to `main`** (PR #1) | 🟡 leading · AI date-range-timezone fix merged to `main` (2026-07-14) |
 | **KindredAccess** | App #2 | Django + Channels | `Beaudoin0zach/kindredaccess` | ✅ pointer **merged to `main`** (PR #2) | 🟡 OIDC RP integrated ahead of seq. (PR #4) |
-| **Benefits Navigator** | Candidate (sensitive) | Django + AI | `Beaudoin0zach/benefits_navigator` | ✅ pointer **merged to `main`** (PR #23, admin override past review gate) · 10 other PRs still open (incl. #20 privacy-hardening, #22 governance, #24 membership) | ⬜ |
-| **Access Atlas** (access-directory) | Member (identity) | Astro | `Beaudoin0zach/access-atlas` | ✅ pointer on `main` · ✅ **invariants PR #1 merged to `main`** | 🟡 onboarded · invariants #2/#3/#4 ✅ · identity #1 🟡 (Keycloak BFF auth landed) · #5 ⏳ |
-| **a11y-probe** | Standalone / CI a11y | Reddit Devvit | none | ⏳ untracked (unborn repo) | n/a |
+| **Benefits Navigator** | Candidate (sensitive) | Django + AI | `Beaudoin0zach/benefits_navigator` | ✅ pointer **merged to `main`** (PR #23, admin override past review gate) · as of 2026-07-14: 11 PRs open — #22 governance + #24 membership + design-review #27/#28, rest dependabot (#20 no longer open); PII-in-logs + Celery `acks_late` fixes merged to `main` | ⬜ |
+| **Access Atlas** (access-directory) | Member (identity) | Astro | `Beaudoin0zach/access-atlas` | ✅ pointer on `main` · ✅ **invariants PR #1 merged to `main`** | 🟡 onboarded · invariants #2/#3/#4 ✅ · identity #1 🟡 (Keycloak BFF auth landed) · #5 ⏳ · evidence-photos PR #18 merged, PR #17 open |
+| **a11y-probe** | Standalone / CI a11y | Reddit Devvit | `Beaudoin0zach/a11y-probe` (private) | ✅ repo initialized · `main` pushed (initial commit 2026-07-14, incl. 44px touch-target fix) · 10 dependabot PRs open | n/a |
 | **page-repair** | Standalone; patterns → `ui` | Browser extension | `LangworthyWatch/page-repair` (canonical) · `Beaudoin0zach/page-repair` (origin) | ✅ branch pushed · ⏳ pointer PR status unverifiable from this account | n/a |
 | **Marketing site** | Company site (not a platform app) | Astro + Netlify | local only (unpushed) | — | n/a |
 
@@ -40,9 +40,9 @@ what gets shipped; "Trigger" = how a deploy happens.
 | **Benefits Navigator** | Django + Celery + Redis | **DigitalOcean App Platform** (region NYC, App ID `2119eba2-07b6-405f-a962-d40dd6956137`) | [`DEPLOYMENT.md`](repos/benefits-navigator/DEPLOYMENT.md), `Dockerfile.prod` | git push | 🟢 <https://benefits-navigator-staging-3o4rq.ondigitalocean.app> | 🟡 **staging live** · ⬜ prod |
 | **KindredAccess** | Django web backend + Capacitor mobile shell | **DigitalOcean Droplet** (Ubuntu 22.04, $12–18/mo) | [`DIGITAL_OCEAN_DEPLOYMENT.md`](repos/kindredaccess/DIGITAL_OCEAN_DEPLOYMENT.md) + `deploy/` systemd units (Gunicorn HTTP + **Daphne WebSockets**, nginx `/ws/` routing) — KA PR #3 | manual (SSH) | ⬜ DNS TBD | ⬜ **not deployed** (WS deploy config now correct) |
 | **Access Atlas** (access-directory) | Astro static (zero-JS) + Supabase | ⏳ **undecided** — data entity/hosting is an org/legal call, not a code one (README §13) | none committed | — | ⬜ | ⏳ **host not chosen** |
-| **a11y-probe** | Reddit Devvit app (client + server bundle) | **Reddit Devvit** platform | [`devvit.json`](repos/a11y-probe/devvit.json) | `devvit upload` / `publish` | Reddit-hosted | ⏳ **unborn repo**, not published |
+| **a11y-probe** | Reddit Devvit app (client + server bundle) | **Reddit Devvit** platform | [`devvit.json`](repos/a11y-probe/devvit.json) | `devvit upload` / `publish` | Reddit-hosted | 🟡 **repo initialized** (`Beaudoin0zach/a11y-probe`, private) · ⬜ not published to Devvit |
 | **page-repair** (extension) | Browser extension (MV3) | **Chrome Web Store / AMO** | [`manifest.json`](repos/page-repair/manifest.json) v1.0.0 + icons · [`PRIVACY.md`](repos/page-repair/PRIVACY.md) · [`STORE_LISTING.md`](repos/page-repair/STORE_LISTING.md) · `dist/page-repair.zip` | store submission | store listing | 🟡 **submission-ready** · ⬜ not submitted (needs dev account + screenshots) |
-| **page-repair** (credit proxy) | Cloudflare Worker + KV | **Cloudflare Workers** | [`proxy/wrangler.jsonc`](repos/page-repair/proxy/wrangler.jsonc) | `wrangler deploy` (manual) | 🟢 <https://page-repair-proxy.airboat-webcast-5u.workers.dev> | 🟡 **live but inert** — `ANTHROPIC_API_KEY` secret unset; health-route change pending redeploy |
+| **page-repair** (credit proxy) | Cloudflare Worker + KV + **Durable Object** (credits) | **Cloudflare Workers** | [`proxy/wrangler.jsonc`](repos/page-repair/proxy/wrangler.jsonc) | `wrangler deploy` (manual) | 🟢 <https://page-repair-proxy.airboat-webcast-5u.workers.dev> | 🟡 **live but inert** — `ANTHROPIC_API_KEY` secret unset. Atomic-credit `CreditsAccount` DO merged to `main` (2026-07-14); needs `wrangler dev` concurrency test + `wrangler types` regen before the next deploy, which must precede setting the API key |
 | **Marketing site** | Astro static | **Netlify** | [`netlify.toml`](repos/marketing-site/netlify.toml) — build `dist`, SPA redirect, security headers | Netlify git deploy | ⬜ | ⬜ **local only, unpushed** |
 | **Keycloak** (identity infra) | Self-hosted Keycloak + own DB | **DigitalOcean** (Droplet) | [docs/deploy/keycloak-digitalocean.md](docs/deploy/keycloak-digitalocean.md) | manual | ⬜ `id.<domain>` DNS TBD | ⬜ **prod not stood up** |
 
