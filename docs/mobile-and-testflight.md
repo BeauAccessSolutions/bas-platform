@@ -70,15 +70,15 @@ so it's a no-op there until that screen is ported.)
   under App Store **Guideline 4.2**. Internal TestFlight (≤100 testers) is fine.
   Clearing external review needs the camera evidence-photo feature
   (`access-directory` iOS runbook).
-- **Mobile source backup — done (2026-07-14):** `bas-apps` (Baseline/CIT app +
-  shared `ui`/`auth`/`tokens`/`i18n`/`api` packages), `kindredaccess-ios`, and
-  `bas-frontend` are all pushed to private `Beaudoin0zach/*` repos. Only
-  `access-atlas-mobile` stays local — it has real uncommitted work (kept, not
-  dropped; likely folds into the `access-directory` wrapper). Tracked in
-  [TRACKER.md §6](../TRACKER.md).
-- **`access-atlas-mobile` is abandoned** — a separate Expo attempt with a single
-  "Initial commit". The real Access Atlas TestFlight build is the Capacitor
-  wrapper in `access-directory`, not this.
+- **Mobile source backup — complete (2026-07-14):** all four mobile repos are
+  pushed to private `Beaudoin0zach/*` repos — `bas-apps` (Baseline/CIT app +
+  shared `ui`/`auth`/`tokens`/`i18n`/`api` packages), `kindredaccess-ios`,
+  `bas-frontend`, and `access-atlas-mobile` (its pending EAS/App.js work was
+  committed as a backup snapshot first). Tracked in [TRACKER.md §6](../TRACKER.md).
+- **`access-atlas-mobile` is a superseded earlier Expo attempt** (now backed up,
+  with its EAS/App.js buildout committed). The real Access Atlas TestFlight build
+  is the Capacitor wrapper in `access-directory`, not this — decide whether to
+  fold in its work or retire the repo.
 - **Disability Wiki — native spike, NOT on TestFlight yet.** `disability-wiki`
   (Astro Starlight member app, remote `Beaudoin0zach/disability-wiki`) has an
   early Capacitor spike (`app/capacitor.config.json`, branch `spike/capacitor-native`).
