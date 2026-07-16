@@ -33,6 +33,7 @@ health_url() {
   case "$1" in
     chronic-illness-tracker) echo "https://chronic-illness-tracker-7o7fw.ondigitalocean.app" ;;
     access-directory)   echo "https://access-atlas-qd464.ondigitalocean.app" ;;
+    disability-wiki)    echo "https://disabilitywiki.org" ;;
     kindredaccess)      echo "https://kindredaccess.org" ;;
     benefits-navigator) echo "https://benefits-navigator-staging-3o4rq.ondigitalocean.app" ;;
     page-repair)        echo "https://page-repair-proxy.airboat-webcast-5u.workers.dev" ;;
