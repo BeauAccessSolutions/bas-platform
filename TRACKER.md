@@ -184,3 +184,4 @@ Setup & hardening steps live in **[docs/keycloak-setup-and-hardening.md](docs/ke
 - [ADR-004](docs/adr/004-existing-user-migration.md) — migrating existing users into Keycloak
 - CIT `docs/adr/004` — CIT-side pointer to the identity decision
 - CIT `docs/mobile/PLAN.md` — native build plan; `docs/mobile/auth-token-exchange.md` — token-exchange spec
+- **Private:** `Beaudoin0zach/bas-internal` — business-sensitive + consolidated-security docs (pricing/cost model, review remediations) kept out of this public repo

@@ -2,8 +2,9 @@
 # (Committed cross-repo symlinks dangle on clone and die in CI; these stay local.)
 /repos/
 
-# Internal business docs (pricing/cost/margins) — this repo is PUBLIC; keep these
-# local-only. Back them up to a private repo, not here.
+# Internal business docs (pricing/cost/margins) — this repo is PUBLIC. The
+# canonical home for these is the PRIVATE repo Beaudoin0zach/bas-internal.
+# Backstop so nothing sensitive lands here by accident.
 /docs/business/
 
 .DS_Store
