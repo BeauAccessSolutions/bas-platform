@@ -92,8 +92,9 @@ audience mappers come out right on KC 26.
 
 ## Follow-ups (not blocking the stand-up)
 
-- [ ] **Add a `benefits-navigator-web` confidential client** to the realm-as-code when
-  BN's OIDC RP integration lands — mirror the `kindredaccess-web` block (confidential +
-  PKCE, pairwise `sub`, audience), add `BN_PAIRWISE_SALT` + `BN_CLIENT_SECRET` to
-  `gen-secrets.sh`, and a `BN_REDIRECT_WEB`. Gated on BN identity work per its
-  `docs/platform-membership.md`.
+- [x] **`benefits-navigator-web` client scaffolded in the realm-as-code** (2026-07-16) —
+  confidential + PKCE, pairwise `sub`, audience, in `bootstrap.sh` as an inert stub (gated on
+  `BN_REDIRECT_WEB`); `BN_PAIRWISE_SALT` + `BN_CLIENT_SECRET` added to `gen-secrets.sh`.
+- [ ] **Wire BN as an OIDC RP** — the remaining, larger piece: BN is `django-allauth`, not
+  yet on the IdP. Full scope (recommended approach, 3 product decisions, app changes,
+  migration) in [benefits-navigator-oidc-integration.md](benefits-navigator-oidc-integration.md).
