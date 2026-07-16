@@ -31,6 +31,7 @@ repos (a governance **org**, not a mono-repo — trust boundary = repo boundary)
 | KindredAccess | Django + Channels | **App #2** — resource server; its 2FA informs step-up |
 | VA Benefits Navigator | Django + AI | Candidate member; sensitive data → same PHI treatment |
 | Access Atlas (access-directory) | Astro | **Identity member** — Keycloak gates *contribution* (pseudonymous); browsing stays account-free; zero-JS surface, no RN rewrite. Repo `Beaudoin0zach/access-atlas` |
+| Disability Wiki | Astro Starlight (post-Wiki.js) + Cloudflare Pages | **Identity member — Access-Atlas-shaped sibling.** Account-free static knowledge base (~540 pages); Keycloak BFF gates *contribution* only. Read path is **DB-free static** (Supabase is write-only moderation staging), unlike Atlas's dynamic validation. Repo `Beaudoin0zach/disability-wiki` |
 | a11y-probe | Reddit Devvit | Likely standalone; can feed shared CI a11y gates |
 | page-repair | Browser extension | Not an identity member; patterns inform shared `ui` |
 | Marketing site | Astro + Netlify | beauaccesssolutions.com — company site, not a platform app |
