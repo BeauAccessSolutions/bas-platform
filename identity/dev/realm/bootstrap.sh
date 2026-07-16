@@ -222,7 +222,7 @@ echo "created access-atlas client: $AA_CID"
   || echo "audience mapper may already exist"
 
 # =============================================================================
-# disability-wiki client (BAS app #4) — same Atlas-shaped public + PKCE + BFF pattern as
+# disability-wiki-web client (BAS app #4) — same Atlas-shaped public + PKCE + BFF pattern as
 # access-atlas (identity gates *contribution* only; public browsing never authenticates).
 # Single redirect host → no Sector Identifier URI. Callback: <origin>/api/auth/callback.
 # =============================================================================
@@ -230,7 +230,7 @@ DW_REDIRECT_WEB="${DW_REDIRECT_WEB:-http://localhost:4321/api/auth/callback}"
 DW_POST_LOGOUT="${DW_POST_LOGOUT:-http://localhost:4321/*}"
 
 DW_CID=$("$KC" create clients -r "$REALM" \
-  -s clientId=disability-wiki \
+  -s clientId=disability-wiki-web \
   -s publicClient=true \
   -s standardFlowEnabled=true \
   -s implicitFlowEnabled=false \
@@ -239,7 +239,7 @@ DW_CID=$("$KC" create clients -r "$REALM" \
   -s "redirectUris=[\"$DW_REDIRECT_WEB\"]" \
   -s "attributes.\"post.logout.redirect.uris\"=$DW_POST_LOGOUT" \
   -i)
-echo "created disability-wiki client: $DW_CID"
+echo "created disability-wiki-web client: $DW_CID"
 
 "$KC" create "clients/$DW_CID/protocol-mappers/models" -r "$REALM" \
   -s name=pairwise-subject \
@@ -251,10 +251,10 @@ echo "created disability-wiki client: $DW_CID"
   || echo "pairwise mapper may already exist"
 
 "$KC" create "clients/$DW_CID/protocol-mappers/models" -r "$REALM" \
-  -s name=disability-wiki-audience \
+  -s name=disability-wiki-web-audience \
   -s protocol=openid-connect \
   -s protocolMapper=oidc-audience-mapper \
-  -s 'config."included.client.audience"=disability-wiki' \
+  -s 'config."included.client.audience"=disability-wiki-web' \
   -s 'config."access.token.claim"=true' \
   || echo "audience mapper may already exist"
 
@@ -317,7 +317,7 @@ fi
 # silently when CIT_SECTOR_URI is unset/unreachable (multi-host redirect). This turns
 # that silent failure into a hard stop for anything real, and a loud warning in dev.
 # -----------------------------------------------------------------------------
-GUARD_CLIENTS=(cit-web kindredaccess-web access-atlas disability-wiki)
+GUARD_CLIENTS=(cit-web kindredaccess-web access-atlas disability-wiki-web)
 [[ -n "$BN_CREATED" ]] && GUARD_CLIENTS+=(benefits-navigator-web)
 for c in "${GUARD_CLIENTS[@]}"; do
   ccid=$("$KC" get clients -r "$REALM" -q clientId="$c" --fields id --format csv --noquotes)
@@ -344,7 +344,7 @@ Done (reference run). Next:
       $KC get realms/$REALM -r $REALM > /opt/keycloak/data/import/bas-realm.json
   - Set CIT backend env: KEYCLOAK_ISSUER=<issuer>/realms/$REALM, KEYCLOAK_CLIENT_ID=cit-web
   - Set Access Atlas / Disability Wiki env: KEYCLOAK_ISSUER=<issuer>/realms/$REALM,
-      KEYCLOAK_CLIENT_ID=access-atlas|disability-wiki, KEYCLOAK_REDIRECT_URI=<origin>/api/auth/callback
+      KEYCLOAK_CLIENT_ID=access-atlas|disability-wiki-web, KEYCLOAK_REDIRECT_URI=<origin>/api/auth/callback
   - Set CIT native app env (bas-apps/apps/cit/.env):
       EXPO_PUBLIC_KEYCLOAK_ISSUER=<issuer>/realms/$REALM
       EXPO_PUBLIC_KEYCLOAK_CLIENT_ID=cit-web
