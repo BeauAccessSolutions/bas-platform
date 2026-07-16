@@ -2,5 +2,9 @@
 # (Committed cross-repo symlinks dangle on clone and die in CI; these stay local.)
 /repos/
 
+# Internal business docs (pricing/cost/margins) — this repo is PUBLIC; keep these
+# local-only. Back them up to a private repo, not here.
+/docs/business/
+
 .DS_Store
 *.log

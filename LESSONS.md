@@ -32,6 +32,17 @@ Format per entry: **Lesson** — what broke → the fix. `(source-app, YYYY-MM-D
   fires may never speak. This is the §4 spine contract; every BAS app's dynamic-status surface has
   the same trap. (page-repair, 2026-07-13)
 
+- **On a streaming / incrementally-updated region, announce once on completion — never per update —
+  and remember an announcement is not focus management.** The Benefits Navigator assistant streams
+  tokens into a response region; re-announcing that region on every token machine-guns a screen
+  reader into uselessness, and firing an assertive *error* announce still leaves keyboard/AT focus
+  stranded on the now-removed "Stop generating" button. → Keep the streaming region `aria-busy` and
+  the live region silent while it fills, announce "Response complete" **once** on done (reserve the
+  assertive channel for errors), and on *every* state transition move focus somewhere sensible — the
+  finished answer on done, the recovery control on failure. Extends the §4 spine contract from
+  static status to dynamic/streaming surfaces (any BAS AI or chat UI: KindredAccess, Benefits
+  Navigator). (benefits-navigator, 2026-07-13)
+
 - **Delegating status to one live-region utility means the visible status nodes must go
   AT-silent — otherwise every change announces twice.** KindredAccess added a single
   `ChatStatusAnnouncer` (two regions) but the visible typing/connection/presence nodes kept the
