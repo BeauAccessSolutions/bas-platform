@@ -139,7 +139,8 @@ claim to leading (it was going to *host* identity). CIT leads because:
 1. **Smallest surface = fastest proof** (7 app screens + 3 auth, vs KA's social app + chat).
 2. **Highest a11y bar forges the best design system** — if `packages/ui` is born
    passing CIT's WCAG 2.2 AA + axe gates, every later app inherits components proven
-   at the strictest level.
+   at the strictest level. The UX/interaction standard those components must satisfy
+   lives in [docs/design-principles.md](docs/design-principles.md).
 3. **Layered sessions mean CIT doesn't wait on a mature IdP** — it validates a token
    and keeps its own hardened session (already built). A minimal day-one Keycloak suffices.
 4. **The repo-boundary invariant bounds risk** — platform experimentation lives in

@@ -1,0 +1,328 @@
+/*
+ * BAS accessible login theme — WCAG 2.2 AA overrides for Keycloak 26's default
+ * login theme (keycloak.v2 / PatternFly v5). Loaded AFTER css/styles.css so
+ * these rules win. Selectors target the REAL rendered DOM (verified against a
+ * live login form): `.pf-v5-c-login`, `.pf-v5-c-form-control` (a SPAN wrapper
+ * around each <input>), `.pf-v5-c-button.pf-m-primary`, etc.
+ *
+ * This is a disability-focused platform; the login page is the first surface
+ * every user meets, so it must clear the bar it asks the rest of the app to.
+ *
+ * WCAG 2.2 AA criteria addressed:
+ *   1.4.3  Contrast (min)        — body/label/button text >= 4.5:1
+ *   1.4.10 Reflow                — no horizontal scroll down to 320px
+ *   1.4.11 Non-text contrast     — input borders & focus rings >= 3:1
+ *   1.4.12 Text spacing          — line-height 1.5, min-height (not fixed) so
+ *                                  user spacing overrides never clip content
+ *   2.3.3  Animation from interactions — honored via prefers-reduced-motion
+ *   2.4.7  Focus visible         — thick, high-contrast ring on every control
+ *   2.4.11 Focus not obscured    — scroll-margin keeps a focused field clear
+ *   2.5.8  Target size (min)     — interactive controls >= 44px (>> 24px floor)
+ * Plus: prefers-color-scheme dark (Keycloak toggles html.pf-v5-theme-dark).
+ *
+ * Every colour pair below is chosen to meet its ratio on the surface it sits on;
+ * ratios noted inline are computed against that surface, not the page.
+ */
+
+/* ---------- Design tokens: light ---------- */
+:root {
+  --bas-bg: #eef2f6;            /* page field behind the card                 */
+  --bas-surface: #ffffff;      /* card / input background                     */
+  --bas-text: #16202c;         /* body text        ~15:1 on surface           */
+  --bas-muted: #4a5666;        /* placeholder/help ~7:1  on surface           */
+  --bas-primary: #005a8c;      /* primary button   white text ~7.4:1          */
+  --bas-primary-hover: #003f63;
+  --bas-on-primary: #ffffff;
+  --bas-border: #6b7684;       /* input border     ~4.6:1 non-text on surface */
+  --bas-focus: #0a4b78;        /* focus ring       high-contrast on light     */
+  --bas-error: #b4231f;        /* error text/edge  ~6.6:1 on surface          */
+  --bas-radius: 8px;
+  --bas-focus-ring: 3px;
+}
+
+/* ---------- Design tokens: dark ----------
+ * Keycloak's inline script adds html.pf-v5-theme-dark when the OS prefers dark
+ * (that class is the authoritative switch). The @media block is a belt-and-
+ * suspenders fallback; both resolve to the same OS state, so they never fight. */
+html.pf-v5-theme-dark {
+  --bas-bg: #0f151b;
+  --bas-surface: #1b2430;      /* card / input background                     */
+  --bas-text: #eef3f8;         /* body text        ~13.6:1 on surface         */
+  --bas-muted: #c2ccd6;        /* placeholder/help ~9:1   on surface          */
+  --bas-primary: #3b9ae0;      /* primary button   dark text ~6.1:1           */
+  --bas-primary-hover: #5fb0ea;
+  --bas-on-primary: #06121c;   /* near-black text on the light-blue button    */
+  --bas-border: #8794a3;       /* input border     ~5:1 non-text on surface   */
+  --bas-focus: #9ecbef;        /* focus ring       high-contrast on dark      */
+  --bas-error: #ff8a84;        /* error text/edge  ~5:1 on surface            */
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bas-bg: #0f151b;
+    --bas-surface: #1b2430;
+    --bas-text: #eef3f8;
+    --bas-muted: #c2ccd6;
+    --bas-primary: #3b9ae0;
+    --bas-primary-hover: #5fb0ea;
+    --bas-on-primary: #06121c;
+    --bas-border: #8794a3;
+    --bas-focus: #9ecbef;
+    --bas-error: #ff8a84;
+  }
+}
+
+/* ---------- Page background & base text ----------
+ * keycloak.v2 paints `.login-pf body` with a fixed photo; text over a photo has
+ * no guaranteed contrast (that's why the base forces the brand white). Replace
+ * it with a solid accessible field and restore honest text colours. */
+body#keycloak-bg,
+.login-pf body {
+  background: var(--bas-bg) !important;
+  color: var(--bas-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.5;                       /* 1.4.12 */
+}
+
+/* Brand text — base forces white (var(--pf-...--light-100)) for the dark photo;
+ * on a solid surface that would vanish, so restore a contrasting colour. */
+#kc-header-wrapper {
+  color: var(--bas-text) !important;
+}
+
+/* ---------- Layout / reflow (1.4.10) ----------
+ * keycloak.v2/css/styles.css pins the container to a fixed `34rem` grid track,
+ * which forces ~544px of width and a horizontal scrollbar at 320px. Cap it to
+ * the viewport instead so the form reflows cleanly on small screens. */
+.pf-v5-c-login__container {
+  grid-template-columns: minmax(0, 34rem) !important;
+  width: 100%;
+}
+.pf-v5-c-login {
+  padding: clamp(1rem, 4vw, 2rem);
+}
+
+/* ---------- Card ---------- */
+.pf-v5-c-login__main {
+  background-color: var(--bas-surface);
+  border: 1px solid var(--bas-border);
+  border-radius: var(--bas-radius);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.14);
+}
+
+/* ---------- Title & labels ---------- */
+#kc-page-title {
+  color: var(--bas-text);
+}
+.pf-v5-c-form__label,
+.pf-v5-c-form__label-text {
+  color: var(--bas-text);
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* ---------- Inputs ----------
+ * The visible field is the SPAN `.pf-v5-c-form-control`; the <input> lives
+ * inside it. PatternFly draws the border with ::before and a focus underline
+ * with ::after — we remove both and own a single, >=3:1, 2px border on the
+ * span so contrast is guaranteed and predictable. */
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--Color: var(--bas-text);
+  background-color: var(--bas-surface);
+  border: 2px solid var(--bas-border);          /* 1.4.11 non-text >= 3:1 */
+  border-radius: var(--bas-radius);
+  min-height: 44px;                             /* 2.5.8 target size      */
+  display: flex;
+  align-items: stretch;
+  scroll-margin-block: 6rem;                    /* 2.4.11 focus not obscured */
+}
+.pf-v5-c-form-control::before,
+.pf-v5-c-form-control::after {
+  display: none !important;
+}
+.pf-v5-c-form-control > input,
+.pf-v5-c-form-control input {
+  width: 100%;
+  min-height: 44px;                             /* 2.5.8 target size aim */
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  font-size: max(1rem, 16px);                   /* >=16px guaranteed — avoids iOS zoom regardless of root font-size */
+  line-height: 1.5;
+  color: var(--bas-text);
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+.pf-v5-c-form-control input::placeholder {
+  color: var(--bas-muted);
+  opacity: 1;                                   /* Firefox dims placeholders */
+}
+/* Focus ring on the wrapper when its input is focused (2.4.7 / 1.4.11). */
+.pf-v5-c-form-control:focus-within {
+  outline: var(--bas-focus-ring) solid var(--bas-focus);
+  outline-offset: 2px;
+  border-color: var(--bas-focus);
+}
+/* Invalid fields — colour is reinforced by KC's error text + icon, not alone. */
+.pf-v5-c-form-control input[aria-invalid="true"],
+.pf-v5-c-form-control.pf-m-error {
+  border-color: var(--bas-error);
+}
+
+/* ---------- Password input group ---------- */
+.pf-v5-c-input-group {
+  gap: 0.5rem;
+  align-items: stretch;
+}
+/* Show/hide password toggle — a real 44x44 target with a visible boundary. */
+.pf-v5-c-button.pf-m-control {
+  min-height: 44px;
+  min-width: 44px;
+  border: 2px solid var(--bas-border);
+  border-radius: var(--bas-radius);
+  background-color: var(--bas-surface);
+  color: var(--bas-text);
+}
+.pf-v5-c-button.pf-m-control:hover {
+  background-color: var(--bas-bg);
+}
+.pf-v5-c-button.pf-m-control .fas,
+.pf-v5-c-form-control__toggle-icon {
+  color: var(--bas-text);                       /* icon >= 3:1 (1.4.11) */
+}
+
+/* ---------- Buttons ----------
+ * Recolour PatternFly buttons by setting their component custom properties so
+ * hover/active/focus states inherit the accessible palette too. */
+.pf-v5-c-button {
+  min-height: 44px;                             /* 2.5.8 */
+  font-size: 1rem;
+  border-radius: var(--bas-radius);
+  scroll-margin-block: 6rem;
+}
+.pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--bas-primary);
+  --pf-v5-c-button--m-primary--Color: var(--bas-on-primary);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--bas-primary-hover);
+  --pf-v5-c-button--m-primary--hover--Color: var(--bas-on-primary);
+  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--bas-primary-hover);
+  --pf-v5-c-button--m-primary--active--Color: var(--bas-on-primary);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--bas-primary-hover);
+  --pf-v5-c-button--m-primary--focus--Color: var(--bas-on-primary);
+  font-weight: 600;
+}
+.pf-v5-c-button.pf-m-secondary {
+  --pf-v5-c-button--m-secondary--Color: var(--bas-primary);
+  --pf-v5-c-button--m-secondary--BorderColor: var(--bas-primary);
+  --pf-v5-c-button--m-secondary--hover--Color: var(--bas-primary-hover);
+  --pf-v5-c-button--m-secondary--hover--BorderColor: var(--bas-primary-hover);
+  font-weight: 600;
+}
+.pf-v5-c-button.pf-m-link {
+  --pf-v5-c-button--m-link--Color: var(--bas-primary);
+  --pf-v5-c-button--m-link--hover--Color: var(--bas-primary-hover);
+  text-decoration: underline;                   /* not colour alone */
+}
+/* Identity-provider / social login buttons keep the 44px target too. */
+.pf-v5-c-login__main-footer-links-item-link {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+/* ---------- Links ---------- */
+a {
+  color: var(--bas-primary);
+  text-decoration: underline;
+}
+a:hover {
+  color: var(--bas-primary-hover);
+}
+
+/* ---------- Checkboxes (e.g. "Remember me", TOS) ---------- */
+.pf-v5-c-check__input {
+  width: 1.5rem;                                /* 24px — meets SC 2.5.8 min (was 20px) */
+  height: 1.5rem;
+  min-width: 24px;
+  min-height: 24px;
+}
+.pf-v5-c-check__label {
+  color: var(--bas-text);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* ---------- Focus visible on EVERY interactive element (2.4.7) ----------
+ * PatternFly zeroes outlines in favour of subtle box-shadows; force a thick,
+ * high-contrast ring. The inner surface-coloured shadow keeps the ring legible
+ * against adjacent borders. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.pf-v5-c-button:focus-visible,
+.pf-v5-c-check__input:focus-visible,
+[tabindex]:focus-visible {
+  outline: var(--bas-focus-ring) solid var(--bas-focus) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 2px var(--bas-surface) !important;
+}
+/* Fallback for engines without :focus-visible. */
+a:focus,
+button:focus,
+input:focus,
+select:focus {
+  outline: var(--bas-focus-ring) solid var(--bas-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Errors & alerts ----------
+ * Error state is carried by text + KC's status icon, never colour alone. */
+.pf-v5-c-helper-text__item-text.pf-m-error,
+.pf-v5-c-form__helper-text.pf-m-error,
+.kc-feedback-text,
+[id^="input-error"] {
+  color: var(--bas-error);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.pf-v5-c-alert.pf-m-danger,
+.pf-v5-c-alert.pf-m-inline.pf-m-danger {
+  border: 2px solid var(--bas-error);
+  border-radius: var(--bas-radius);
+}
+.pf-v5-c-alert__title,
+.pf-v5-c-alert__description {
+  color: var(--bas-text);
+}
+
+/* Keep focused rows/fields clear of any sticky chrome (2.4.11). */
+.pf-v5-c-form__group,
+input,
+select,
+textarea {
+  scroll-margin-block: 6rem;
+}
+
+/* ---------- Reduced motion (2.3.3) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Reflow polish at very narrow widths (1.4.10) ---------- */
+@media (max-width: 480px) {
+  .pf-v5-c-login__main {
+    border-radius: var(--bas-radius);
+  }
+  .pf-v5-c-input-group {
+    flex-wrap: nowrap;
+  }
+}

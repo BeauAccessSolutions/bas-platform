@@ -52,8 +52,16 @@ CIT_SECTOR_URI="${CIT_SECTOR_URI:-}"
   --user "${KC_ADMIN:-admin}" --password "${KC_ADMIN_PASSWORD:-admin}"
 
 # 2. Realm.
+#    loginTheme=bas is the platform's WCAG 2.2 AA accessible login theme
+#    (identity/themes/bas). It must be mounted into the container — the dev
+#    compose bind-mounts identity/themes -> /opt/keycloak/themes; prod ships it
+#    to /opt/keycloak/themes/bas. Set it here so a realm rebuilt from this script
+#    (or its exported bas-realm.json) renders the accessible theme, not the
+#    default. NOTE: also set loginTheme=bas on the `master` realm so the admin
+#    login matches, and mirror this line into the prod parameterized bootstrap.
 "$KC" create realms -s realm="$REALM" -s enabled=true \
   -s accessTokenLifespan="$ACCESS_TOKEN_LIFESPAN" \
+  -s loginTheme=bas \
   -s sslRequired=external || echo "realm may already exist"
 
 # 2b. Relax the declarative user profile: make firstName/lastName OPTIONAL (username +

@@ -19,6 +19,7 @@ repos (a governance **org**, not a mono-repo — trust boundary = repo boundary)
   - [ADR-002](docs/adr/002-umbrella-org-and-repo-topology.md) — the BAS umbrella, repo topology, no committed cross-repo symlinks.
   - [ADR-003](docs/adr/003-pairwise-subject-identifiers.md) — pairwise subject identifiers, so no two apps can correlate a shared user.
   - [ADR-004](docs/adr/004-existing-user-migration.md) — migrating existing per-app users into Keycloak without a mass reset.
+- **[docs/design-principles.md](docs/design-principles.md)** — the cross-cutting UX/interaction standard every app inherits: fundamentals, the delight layer, send/typing/login/empty-state defaults, and the accessibility spine for `packages/ui` + the login theme.
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — how apps join the platform; the PHI contribution boundary.
 - **[.github/CODEOWNERS](.github/CODEOWNERS)** — decisions require owner review.
 
