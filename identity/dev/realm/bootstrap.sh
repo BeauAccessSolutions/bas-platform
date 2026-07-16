@@ -36,6 +36,7 @@ ACCESS_TOKEN_LIFESPAN="${ACCESS_TOKEN_LIFESPAN:-300}"  # 5 min — short-lived i
 #    stored identity rows (KindredAccess KeycloakIdentity, CIT oidcSub, ...).
 CIT_PAIRWISE_SALT="${CIT_PAIRWISE_SALT:-cit-sector-salt-dev}"
 KA_PAIRWISE_SALT="${KA_PAIRWISE_SALT:-ka-sector-salt-dev}"
+DW_PAIRWISE_SALT="${DW_PAIRWISE_SALT:-dw-sector-salt-dev}"
 
 # Sector Identifier URI for cit-web (ADR-003). cit-web serves BOTH web and native, so its
 # redirect URIs span multiple hosts — and Keycloak's pairwise-sub mapper then REQUIRES a
@@ -172,13 +173,56 @@ fi
   -s 'config."access.token.claim"=true' \
   || echo "audience mapper may already exist"
 
+# =============================================================================
+# disability-wiki-web client (BAS member: Disability Wiki — Astro / Cloudflare Pages).
+# Like cit-web this is a PUBLIC client: the server-side BFF runs Auth-Code + PKCE
+# WITHOUT a client secret (matching Access Atlas's public-PKCE BFF decision), so the
+# browser never holds a token and the zero-JS browsing surface stays script-free.
+# Same pairwise `sub` + audience isolation as the others. A single redirect host per
+# environment, so no sector-identifier URI is needed for the pairwise mapper.
+# Redirect URI is the BFF callback: <origin>/api/auth/callback.
+# =============================================================================
+DW_REDIRECT_WEB="${DW_REDIRECT_WEB:-http://localhost:8788/api/auth/callback}"
+DW_POST_LOGOUT="${DW_POST_LOGOUT:-http://localhost:8788/*}"
+
+DW_CID=$("$KC" create clients -r "$REALM" \
+  -s clientId=disability-wiki-web \
+  -s publicClient=true \
+  -s standardFlowEnabled=true \
+  -s implicitFlowEnabled=false \
+  -s directAccessGrantsEnabled=false \
+  -s 'attributes."pkce.code.challenge.method"=S256' \
+  -s "redirectUris=[\"$DW_REDIRECT_WEB\"]" \
+  -s "attributes.\"post.logout.redirect.uris\"=$DW_POST_LOGOUT" \
+  -i)
+echo "created disability-wiki-web client: $DW_CID"
+
+# Pairwise `sub` (ADR-003) — DW's sub never correlates with the other apps'.
+"$KC" create "clients/$DW_CID/protocol-mappers/models" -r "$REALM" \
+  -s name=pairwise-subject \
+  -s protocol=openid-connect \
+  -s protocolMapper=oidc-sha256-pairwise-sub-mapper \
+  -s "config.\"pairwiseSubAlgorithmSalt\"=$DW_PAIRWISE_SALT" \
+  -s 'config."id.token.claim"=true' \
+  -s 'config."access.token.claim"=true' \
+  || echo "pairwise mapper may already exist"
+
+# Audience: ensure aud/azp includes disability-wiki-web so the BFF's verifier can enforce it.
+"$KC" create "clients/$DW_CID/protocol-mappers/models" -r "$REALM" \
+  -s name=disability-wiki-web-audience \
+  -s protocol=openid-connect \
+  -s protocolMapper=oidc-audience-mapper \
+  -s 'config."included.client.audience"=disability-wiki-web' \
+  -s 'config."access.token.claim"=true' \
+  || echo "audience mapper may already exist"
+
 # -----------------------------------------------------------------------------
 # GUARD (ADR-003). Every client MUST carry a pairwise-sub mapper, or its `sub` is the
 # raw, correlatable user id — a platform-invariant breach. cit-web loses the mapper
 # silently when CIT_SECTOR_URI is unset/unreachable (multi-host redirect). This turns
 # that silent failure into a hard stop for anything real, and a loud warning in dev.
 # -----------------------------------------------------------------------------
-for c in cit-web kindredaccess-web; do
+for c in cit-web kindredaccess-web disability-wiki-web; do
   ccid=$("$KC" get clients -r "$REALM" -q clientId="$c" --fields id --format csv --noquotes)
   if "$KC" get "clients/$ccid/protocol-mappers/models" -r "$REALM" --fields protocolMapper 2>/dev/null \
        | grep -q oidc-sha256-pairwise-sub-mapper; then
@@ -206,4 +250,8 @@ Done (reference run). Next:
       EXPO_PUBLIC_KEYCLOAK_ISSUER=<issuer>/realms/$REALM
       EXPO_PUBLIC_KEYCLOAK_CLIENT_ID=cit-web
       EXPO_PUBLIC_APP_SCHEME=com.beauaccesssolutions.cit
+  - Set Disability Wiki env (Cloudflare Pages → disability-wiki → Variables):
+      KEYCLOAK_ISSUER=<issuer>/realms/$REALM
+      KEYCLOAK_CLIENT_ID=disability-wiki-web
+      KEYCLOAK_REDIRECT_URI=<origin>/api/auth/callback   (e.g. https://disabilitywiki.org/api/auth/callback)
 EOF
