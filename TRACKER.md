@@ -3,7 +3,7 @@
 Living status board for the Beau Access Solutions accessibility-app platform. Update as
 things move — this is the single place to see where everything stands.
 
-**Last updated:** 2026-07-16 (reconciled against real repo state via `/platform-status`; added Disability Wiki)
+**Last updated:** 2026-07-16 (reconciled via `/platform-status`; added Disability Wiki; §1b repo & disk map now in private bas-internal)
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started · ⏳ blocked / waiting on input
 
 ---
@@ -27,6 +27,20 @@ things move — this is the single place to see where everything stands.
 - Benefits Navigator — ✅ merged (PR #23, admin override past the Code Owner review gate)
 - Access Atlas — ✅ pointer already on `main`; invariants PR #1 also merged
 - page-repair — pointer PR status **unverifiable** from this GitHub account (`LangworthyWatch/page-repair` is third-party); confirm directly there.
+
+---
+
+## 1b. Repo & disk map
+
+The full inventory of every BAS repo → GitHub remote + local checkout path(s), plus the
+duplicate-clone and folder-name-vs-repo-name hazards that caused the earlier wrong-repo
+Netlify incident, lives in the **private** `bas-internal` repo
+(`infra/repo-and-disk-map.md`) — it enumerates private repo names, disk paths, and
+unrelated personal projects, so it stays out of this public hub.
+
+One hazard worth stating here: **Disability Wiki has no clone under `repos/`**, so
+`/platform-status` can't git/HTTP-probe it like the other apps — add one (or a symlink) to
+bring it under the status tooling.
 
 ---
 
