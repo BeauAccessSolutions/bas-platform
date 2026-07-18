@@ -79,3 +79,58 @@ Append-only record of things that went wrong, so patterns become visible across 
   already the last entry in this file from the prior session, and I hit it anyway.
 
 ---
+## Session: 2026-07-18
+
+**Project:** bas-platform (+ page-repair, disability-wiki, benefits-navigator)
+
+### Failures
+
+**Cross-cutting pattern worth naming:** four separate times a bug in *my own test
+harness* presented as a product bug. Each cost a debugging detour into correct
+product code. When a brand-new harness reports a failure, suspect the harness first.
+
+- **`timeout 60 node --test` → exit 127 (THIRD occurrence).** macOS has no GNU
+  `timeout`. Logged in the two prior sessions and hit again → prose in this file is
+  not working as a control. Escalated to memory this session; see
+  the "shell assumptions fail silently" entry in `~/.claude/shared/LESSONS.md`.
+- **Promise-adoption deadlock (harness):** `startStream()` was `async` and returned
+  the in-flight submit promise, so `await startStream(t)` *adopted* it — every BN
+  test waited for the stream to finish before it could push the frame that finishes
+  it. All 5 hung at 15s with no error. → Return the promise wrapped (`{ p }`).
+- **Abort-ignoring SSE stub (harness):** the stub reader kept reading after
+  `stop()`, so the client fell through to "stream closed without done" and reported
+  a spurious error. Read as a product bug at first. → Honour `opts.signal` and throw
+  `AbortError`, like real fetch.
+- **Bare `fetch` hit the real network (harness):** the UMD module resolves `fetch`
+  from Node's global, not the jsdom window, so early runs made real requests and
+  surfaced as `stream_interrupted`. → Set `globalThis.fetch` to the stub.
+- **`pretendToBeVisual: true` hung the run (harness):** starts a rAF loop that keeps
+  the Node event loop alive; `node --test` never exited. → Drop it; nothing needed rAF.
+- **Cross-realm array comparison:** `vm.runInContext('PRECACHE')` returns an array
+  carrying the vm realm's prototype, so `assert.deepStrictEqual([], [])` FAILED
+  across the boundary. → Copy into a host array (`[...]`) before asserting.
+- **Reported CI green while jobs were still running (twice).** My poll filtered on
+  `state=="PENDING"` but `gh` reports `IN_PROGRESS`, so the until-loop exited
+  immediately. Told the user "all four green" before BN had finished — and it then
+  failed. → Filter `IN_PROGRESS|PENDING|QUEUED`; never report a run from a loop that
+  might not have waited.
+- **Pushed a lint failure to CI:** `black --check` rejected my new test file. I had
+  run the tests locally but not the repo lint. Compounding: BN's Lint step runs
+  *before* my new jsdom step, so the gate I had just added never executed in CI. →
+  Run the exact lint CI runs (`ruff check .` && `black --check .`) before pushing.
+- **`set -- $spec` in zsh does not word-split** an unquoted variable, so a
+  four-repo status loop ran with `$2` empty and errored four times. → Use a function
+  with explicit args.
+- **Two overreaching assertions, both caught by their own failure:** counted *all*
+  inline `<script>` on the BN page (base.html legitimately has its own), and used
+  `assistant-caret` as a "JS is inline" marker when it is a CSS class in the inline
+  `<style>`. → Assert about the thing you actually changed, not the whole document.
+- **Introduced a real bug mid-refactor:** extracting BN's inline script broke
+  `{% static %}` because `{% load static %}` is not inherited from `base.html` — a
+  `TemplateSyntaxError` on a page whose JS suite was fully green. Caught by the
+  render tests I then added; those tests exist because of this.
+- **Blocked action:** `gh pr merge --admin` denied by the permission classifier.
+  Stopped and handed the command to the user rather than routing around it. Recorded
+  in [[bas-infra-access]] so the round trip isn't repeated.
+
+---
