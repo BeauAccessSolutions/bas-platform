@@ -30,7 +30,10 @@ Format per entry: **Lesson** — what broke → the fix. `(source-app, YYYY-MM-D
   both regions before the first message** — a live region that enters the DOM in the same breath as
   its content mutates gets dropped by screen readers, so an alert region created only when the error
   fires may never speak. This is the §4 spine contract; every BAS app's dynamic-status surface has
-  the same trap. (page-repair, 2026-07-13)
+  the same trap. *Gate graduated (page-repair only):* `test/unit.mjs` "live-region spine" section
+  drives the real content script and asserts both regions exist **before** any message, that failures
+  land assertive, and that partial progress stays polite — now gated by new CI (`.github/workflows/ci.yml`).
+  The rule still applies unenforced to every other BAS surface. (page-repair, 2026-07-13)
 
 - **On a streaming / incrementally-updated region, announce once on completion — never per update —
   and remember an announcement is not focus management.** The Benefits Navigator assistant streams
@@ -41,7 +44,12 @@ Format per entry: **Lesson** — what broke → the fix. `(source-app, YYYY-MM-D
   assertive channel for errors), and on *every* state transition move focus somewhere sensible — the
   finished answer on done, the recovery control on failure. Extends the §4 spine contract from
   static status to dynamic/streaming surfaces (any BAS AI or chat UI: KindredAccess, Benefits
-  Navigator). (benefits-navigator, 2026-07-13)
+  Navigator). *Gate graduated (BN only):* the inline template script became `static/js/assistant.js`
+  so it could be tested — `tests/js/assistant.a11y.test.mjs` pumps 200 deltas and asserts via
+  MutationObserver that the polite region never changes, plus focus lands on the answer (done) and on
+  the recovery control (error). Wired into CI as `npm run test:js`; note `tests/e2e` is excluded from
+  BN's pytest run, so a Playwright test there would have gated nothing. KindredAccess's chat surface
+  remains unenforced. (benefits-navigator, 2026-07-13)
 
 - **Delegating status to one live-region utility means the visible status nodes must go
   AT-silent — otherwise every change announces twice.** KindredAccess added a single
@@ -64,4 +72,8 @@ Format per entry: **Lesson** — what broke → the fix. `(source-app, YYYY-MM-D
   `@media (prefers-color-scheme: dark)` override, and verify every text (≥4.5:1) and UI-boundary
   (≥3:1) pair **numerically in both themes** with a luminance script — not by eyeballing one theme.
   Applies to any BAS surface with authored CSS (options pages, `packages/ui` components, the
-  Keycloak theme). (page-repair, 2026-07-13)
+  Keycloak theme). *Gate graduated (page-repair only):* `test/contrast.mjs` recomputes every pair from
+  the token hexes in both themes and is **fail-closed** — a `:root` token in no verified pair fails the
+  run, so a new colour can't slip in unchecked. (Re-introducing the `#999` border reproduces 2.85:1 and
+  fails.) `packages/ui` and the Keycloak theme still have no such script.
+  (page-repair, 2026-07-13)
