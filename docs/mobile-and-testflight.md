@@ -38,7 +38,13 @@ for a fresh review round.
 `bas-apps/apps/cit` is a real React Native app (Expo, EAS-built, bundle
 `com.beauaccesssolutions.cit`). It renders native screens and calls the CIT API
 backend (`EXPO_PUBLIC_CIT_API_URL` → `https://chronic-illness-tracker-7o7fw.ondigitalocean.app/api`),
-authenticating via prod Keycloak (`https://id.kindredaccess.org/realms/bas`).
+authenticating via prod Keycloak (`https://id.beauaccesssolutions.com/realms/bas`).
+
+> ⚠️ **Issuer migrated 2026-07-17.** `eas.json` now points at `id.beauaccesssolutions.com`, but
+> **builds already on TestFlight still have the old `id.kindredaccess.org` baked in** — a native
+> app's issuer is fixed at build time, so it only moves on the next EAS build. The old host stays
+> dual-served until then. Same applies to the Capacitor wrappers (Access Atlas, KindredAccess),
+> where the IdP host lives in `allowNavigation` + iOS `WKAppBoundDomains`.
 
 **Consequence:** its own code edits do **not** auto-appear. Two paths:
 
@@ -61,7 +67,7 @@ so it's a no-op there until that screen is ported.)
    - **Access Atlas** — `deploy_on_push: true` on `main` (auto). Merge → live in minutes → relaunch app.
    - **CIT backend** — `deploy_on_push: true` on `main` (auto).
    - **KindredAccess** — **manual SSH** to the DO Droplet. `main` edits do **not** reach `kindredaccess.org` (or the app) until someone redeploys.
-   - **Keycloak** (`id.kindredaccess.org`) — manual.
+   - **Keycloak** (`id.beauaccesssolutions.com`) — manual.
 3. **Cache:** if a wrapper shows stale content, force-quit and reopen (WKWebView cache).
 
 ## Known gotchas
@@ -92,5 +98,5 @@ so it's a no-op there until that screen is ported.)
 | CIT backend (Baseline's API) | `https://chronic-illness-tracker-7o7fw.ondigitalocean.app` | auto (`main`) |
 | Access Atlas web (wrapper target) | `https://access-atlas-qd464.ondigitalocean.app` | auto (`main`) |
 | KindredAccess web (wrapper target) | `https://kindredaccess.org` | manual (SSH) |
-| Keycloak prod (issuer) | `https://id.kindredaccess.org/realms/bas` | manual |
+| Keycloak prod (issuer) | `https://id.beauaccesssolutions.com/realms/bas` | manual |
 | Benefits Navigator staging | `https://benefits-navigator-staging-3o4rq.ondigitalocean.app` | on push |
