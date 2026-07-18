@@ -5,15 +5,23 @@ an edit reaches testers. Written 2026-07-14 after a status pass found the tracke
 badly out of date on this (it treated TestFlight as unstarted; all three apps are
 live on it). See [TRACKER.md §2b](../TRACKER.md).
 
-## The TestFlight apps (3 live + 2 scaffolded)
+## The TestFlight apps (all 5 live as of 2026-07-18)
 
-| TestFlight name | App | Build type | Source repo | Status |
+| TestFlight name | App | Build type | Source repo | Latest build |
 |---|---|---|---|---|
-| **Access Atlas** | Access Atlas | Capacitor / WKWebView **wrapper** | `access-directory` (`capacitor.config.ts`) | 🟢 live on TestFlight |
-| **KindredAccess** | KindredAccess | Capacitor / WKWebView **wrapper** | `kindredaccess-ios` ⚠️ *no remote* | 🟢 live on TestFlight |
-| **Baseline** | Chronic Illness Tracker (CIT) | **native Expo / React Native** (EAS) | `bas-apps/apps/cit` ⚠️ *no remote* | 🟢 live on TestFlight |
-| *(none yet)* | Benefits Navigator | Capacitor 8 / WKWebView **wrapper** | `benefits-navigator` `mobile/` (branch `feat/ios-wrapper`) | 🟡 scaffolded 2026-07-18 — compiles; needs ASC record + signing |
-| *(none yet)* | Disability Wiki | Capacitor 6 **bundled-static** (offline-first, NOT a URL wrapper) | `disability-wiki` `app/` (branch `feat/capacitor-ios`) | 🟡 scaffolded 2026-07-18 — compiles; needs ASC record + signing |
+| **Access Atlas** | Access Atlas | Capacitor / WKWebView **wrapper** | `access-directory` (`capacitor.config.ts`) | 🟢 **1.0.0 (3)** — issuer-migration rebuild, uploaded 2026-07-18. NB: ASC already held a build 2 no doc knew about |
+| **KindredAccess** | KindredAccess | Capacitor / WKWebView **wrapper** | `kindredaccess-ios` ⚠️ *no remote* | 🟢 **1.0 (2)** — issuer-migration rebuild, uploaded 2026-07-18 |
+| **Baseline** | Chronic Illness Tracker (CIT) | **native Expo / React Native** (EAS) | `bas-apps/apps/cit` (remote `Beaudoin0zach/bas-apps`) | 🟢 **1.0.0 (7)** — issuer-migration rebuild, EAS build + auto-submit 2026-07-18 |
+| Benefits Navigator | Benefits Navigator | Capacitor 8 / WKWebView **wrapper** | `benefits-navigator` `mobile/` (merged to `main`, PR #30) | 🟢 **1.0 (1)** — FIRST build, uploaded 2026-07-18 (`com.beauaccess.benefitsnavigator`; wraps **staging**, deliberately) |
+| Disability Wiki | Disability Wiki | Capacitor 6 **bundled-static** (offline-first, NOT a URL wrapper) | `disability-wiki` `app/` (merged to `main`, PR #43) | 🟢 **1.0 (1)** — FIRST build, uploaded 2026-07-18 (`org.disabilitywiki.app`, ~102 MB bundle) |
+
+> **Archive/upload runbook (proven 2026-07-18, all four Capacitor apps):** archive with
+> `CODE_SIGNING_ALLOWED=NO`, then `xcodebuild -exportArchive -exportOptionsPlist ExportOptions.plist
+> -allowProvisioningUpdates` — distribution signing happens at export (no registered devices needed;
+> the team has none). Each repo carries its `ExportOptions.plist`. Needs a signed-in Xcode Apple ID.
+> Machine quirks: `LANG=en_US.UTF-8` (CocoaPods) + `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
+> Build numbers: trust App Store Connect, not the local project — expect "Redundant Binary Upload" and bump.
+> France availability: skipped on all five (would require the ANSSI encryption declaration; no French audience).
 
 > **CIT ships as "Baseline" on TestFlight.** If you're looking for CIT in App Store
 > Connect / TestFlight, it's under that name.
