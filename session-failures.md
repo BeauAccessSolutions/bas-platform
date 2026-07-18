@@ -184,3 +184,14 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - **[monitoring] Piped `xcodebuild … | tail` into the task output** swallowed failure diagnostics twice → redirect full output to a log file, grep the log.
 
 ---
+## Session: 2026-07-18 (CIT numeric-PHI scrub-list fix, PR #41)
+
+**Project:** chronic-illness-tracker (worktree `jovial-snyder-c3f316`)
+
+### Failures
+- **[Read] `src/lib/logger.ts` did not exist** — the handoff prompt cited `src/lib/logger.ts:36-76`; the real path is `src/lib/logger/index.ts`. Cheap to recover (the tool suggested the directory), but a reminder that a cited path in a handoff note is a claim, not a fact — the line numbers were right, the file wasn't.
+- **[tsc] 40+ phantom type errors in a fresh worktree** (`Property 'status' does not exist on type '{}'`, waves of implicit-`any`) — read as "my change broke the build" for a moment. Cause: the worktree had no generated Prisma client (`node_modules/.prisma` absent; CIT generates to `src/generated/prisma`). → `npx prisma generate`, then 0 errors. **Diagnosis that saved it:** typechecking the *unmodified* sibling checkout showed 0 errors, isolating it to worktree state, not the diff. New worktrees of a codegen-dependent repo need their generate step before any typecheck result is meaningful.
+- **[gh] Account flipped to `LangworthyWatch` twice in one session** — once before `pr create` (caught by `gh auth status`), and again silently before `platform-status.sh`, which then reported CIT `open PRs: 0` while #41 was open. The second one is worse than a failed command: it produced a **confident wrong answer** in the status board. → `gh auth switch --user Beaudoin0zach`; hazard now documented in TRACKER.md §1b. The script should distinguish "0 PRs" from "cannot see repo" and fail loudly.
+- **[wrap-up] Phase 1 "auto-commit and push to main" was not safe to follow literally** — `~/.claude` held 76 uncommitted changes, 75 of them a prior session's in-flight skill reorg into `skills-archive/`; CIT's own work belongs on a review-gated PR branch, not `main`. → Committed nothing outside my own edits and surfaced the rest. A blanket auto-commit step needs a "only what this session touched" guard.
+
+---
