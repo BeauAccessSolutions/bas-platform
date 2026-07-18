@@ -15,29 +15,54 @@ Solutions platform repos and is skipped silently everywhere else.
 
 ## Phase 1: Ship It
 
-**Commit:**
-1. Run `git status` in each repo directory that was touched during the session
-2. If uncommitted changes exist, auto-commit to main with a descriptive message
-3. Push to remote
+**Commit — attribute before you stage.** These repos are worked by **concurrent agent sessions**.
+Uncommitted files are not necessarily yours, and sweeping them up commits someone else's
+half-finished pass.
+
+1. Run `git status` in each repo directory that was touched during the session.
+2. **Check for a live peer session before touching anything:**
+   `git log -5 --pretty='%h %ad %s' --date=iso-local` and compare against `date`. A commit from the
+   last few minutes that you did not author means another session is active *right now*.
+3. **Stage only paths this session actually edited** — name them explicitly (`git add <path>…`).
+   Never `git add -A` / `git add .` / `git commit -a`. If a file you touched also carries changes you
+   don't recognize, leave it and report it instead of committing a mixed state.
+4. Commit with a descriptive message. If nothing is yours, say so — "no changes authored this
+   session" is a valid outcome.
+5. **Push only if every unpushed commit on the branch is yours.** Otherwise you publish a peer
+   session's in-flight work. If the branch carries others' commits, stop and hand the push decision
+   to the user with the list. Never `push --force` here.
+
+**Worktree cleanup (`.claude/worktrees/`):**
+6. `git worktree list` to enumerate.
+7. For **each** worktree, before proposing removal, check both:
+   - uncommitted work: `git -C <dir> status --porcelain`
+   - unmerged commits: `git log --oneline main..<branch>`
+8. Remove **only** worktrees that are clean *and* have zero unmerged commits:
+   `git worktree remove <dir>`. Then `git worktree prune`.
+9. **Never bulk-remove from a `git worktree list` SHA glance.** Matching SHAs look like no-ops and
+   aren't — a branch can sit at main's SHA in the list yet still hold commits main doesn't have.
+   This check once stood between a "clean up the stale worktrees" proposal and destroying 6 commits.
+10. Report any worktree you kept, with its branch and unmerged-commit count, so stranded work stays
+    visible rather than silently accumulating.
 
 **File placement check:**
-4. If any files were created or saved during this session:
-   - Verify they follow your naming convention
-   - Auto-fix naming violations (rename the file)
-   - Verify they're in the correct subfolder per your project structure
-   - Auto-move misplaced files to their correct location
-5. If any document-type files (.md, .docx, .pdf, .xlsx, .pptx) were created
-   at the workspace root or in code directories, move them to the docs folder
-   if they belong there
+11. If any files were created or saved during this session:
+    - Verify they follow your naming convention
+    - Auto-fix naming violations (rename the file)
+    - Verify they're in the correct subfolder per your project structure
+    - Auto-move misplaced files to their correct location
+12. If any document-type files (.md, .docx, .pdf, .xlsx, .pptx) were created
+    at the workspace root or in code directories, move them to the docs folder
+    if they belong there
 
 **Deploy:**
-6. Check if the project has a deploy skill or script
-7. If one exists, run it
-8. If not, skip deployment entirely — do not ask about manual deployment
+13. Check if the project has a deploy skill or script
+14. If one exists, run it
+15. If not, skip deployment entirely — do not ask about manual deployment
 
 **Task cleanup:**
-9. Check the task list for in-progress or stale items
-10. Mark completed tasks as done, flag orphaned ones
+16. Check the task list for in-progress or stale items
+17. Mark completed tasks as done, flag orphaned ones
 
 ## Phase 1.5: Sync Platform Docs (Beau Access Solutions apps only)
 
@@ -170,6 +195,42 @@ Use this append format:
 If there were no failures worth logging, append a brief "No failures" entry
 so there's a record that the session ran clean. This makes it easy to spot
 sessions where something went wrong vs. sessions where everything worked.
+
+### Skills & Lessons Triage
+
+Decide explicitly whether this session should change the skill library or the lessons files. Do the
+checks — do not assert a gap from memory.
+
+**1. Does a lesson already cover it?** `grep` the lessons files before writing anything:
+`~/.claude/shared/LESSONS.md` (cross-project) and the repo's own `LESSONS.md` (this-project). If an
+entry already covers the mistake, **extend that entry with the new mechanism** rather than adding a
+near-duplicate. A second entry on the same root cause makes both harder to find.
+
+**2. If the rule already existed and the mistake happened anyway, prose is not the fix.** This is the
+most important branch. Re-stating a rule that was already loaded into the session is the failure
+mode, not the remedy. Prefer, in order:
+   - a **mechanical gate** (test, CI check, `make check`, pre-commit) → cite it as `*Tested:*`
+   - a **skill step** that runs at the moment of risk → this is `*Graduated:*`
+   - prose in the lessons file → last resort, and only for things no gate can catch
+
+**3. Skill add / update / retire.** Check `~/.claude/skills/` and the repo's `.claude/skills/`:
+   - **Update** an existing skill when this session found a step it got wrong, a trap it should
+     have warned about, or an instruction in it that is now known to be unsafe. A skill that gave
+     bad guidance this session is the highest-value edit available — fix it before writing prose.
+   - **Add** only on real evidence: the same multi-step procedure reconstructed from scratch ≥3
+     times, or a lesson logged more than once. Cap at one new skill per session; a speculative skill
+     adds trigger noise and rots unread.
+   - **Retire / archive** a skill whose platform assumptions no longer hold. Archive (`mv` to
+     `~/.claude/skills-archive/`) rather than delete unless you have confirmed it is reinstallable.
+   - **Check triggering, not just content.** A skill with zero invocations that describes work you
+     genuinely do has a *description* problem — its trigger phrasings don't match how you actually
+     talk about the task. Rewrite the description around your real artifacts and error messages.
+
+**4. Budget check.** If a lessons file is over its stated budget, note it and recommend
+`/prune-lessons` — do not run a prune while another session may be mid-pass on the same file.
+
+Report each decision as: `lesson: extended <entry> | new | none` and
+`skill: updated <name> | new <name> | archived <name> | none`, each with its one-line reason.
 
 ### Self-Improvement Findings
 
