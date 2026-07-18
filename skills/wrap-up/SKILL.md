@@ -37,8 +37,15 @@ half-finished pass.
 7. For **each** worktree, before proposing removal, check both:
    - uncommitted work: `git -C <dir> status --porcelain`
    - unmerged commits: `git log --oneline main..<branch>`
-8. Remove **only** worktrees that are clean *and* have zero unmerged commits:
-   `git worktree remove <dir>`. Then `git worktree prune`.
+8. Remove **only** worktrees that are clean *and* have zero unmerged commits *and* are not in live
+   use: `git worktree remove <dir>`. Then `git worktree prune`.
+   **Liveness check — clean + merged is not sufficient.** A worktree a peer session is working in
+   right now looks identical to an abandoned one: empty `status`, nothing unmerged. Check its
+   directory mtime (`ls -ldt .claude/worktrees/*/`); anything touched in the last ~30 minutes that
+   you did not create belongs to a live session — **leave it and report it**. Watch for
+   re-appearance: if a worktree you removed earlier is back under a *different* random directory
+   name on the same branch, sessions are actively spawning them and you should stop removing
+   entirely. (Observed 2026-07-18: two removed at 09:00 were recreated at 09:11–09:12.)
 9. **Never bulk-remove from a `git worktree list` SHA glance.** Matching SHAs look like no-ops and
    aren't — a branch can sit at main's SHA in the list yet still hold commits main doesn't have.
    This check once stood between a "clean up the stale worktrees" proposal and destroying 6 commits.

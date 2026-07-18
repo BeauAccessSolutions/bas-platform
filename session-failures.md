@@ -195,3 +195,30 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - **[wrap-up] Phase 1 "auto-commit and push to main" was not safe to follow literally** — `~/.claude` held 76 uncommitted changes, 75 of them a prior session's in-flight skill reorg into `skills-archive/`; CIT's own work belongs on a review-gated PR branch, not `main`. → Committed nothing outside my own edits and surfaced the rest. A blanket auto-commit step needs a "only what this session touched" guard.
 
 ---
+
+---
+
+## Session: 2026-07-18 (cont. — merge + skill hardening)
+
+**Project:** bas-platform (memory/skills audit, part 2)
+
+### Failures
+
+- **Wrote a worktree-cleanup procedure that was itself unsafe, then caught it by running it.** New
+  `wrap-up` step 8 removed any worktree that was clean with zero unmerged commits. On the very next
+  run all four qualified — but two had been recreated by live peer sessions at 09:11–09:12, minutes
+  after I removed their predecessors at 09:00. A worktree in active use is indistinguishable from an
+  abandoned one by those two checks alone. → Added a liveness check (directory mtime; and if a
+  worktree reappears under a different random name on the same branch, stop removing entirely).
+  Lesson: a cleanup rule needs a "someone is using this right now" test, not just "is it finished".
+- **Near-miss: almost merged a lesson entry that taught a disproven heuristic.** The incoming
+  `LESSONS.md` section from `claude/elegant-banach-721970` instructed verifying a Keycloak client by
+  looking for the themed "Sign in to bas" page — the exact false positive disproved earlier the same
+  day (the error page carries an identical `<title>`). A clean `git merge` would have committed it
+  verbatim into the file that loads into every session. → Read incoming content on merge, don't just
+  resolve textual conflicts; a conflict-free hunk can still be factually wrong.
+- **Assumed the push was mine to make; a peer had already done it.** `c7d2b39` was pushed by another
+  session between my commit and my push check. Harmless here, but the branch state you reasoned
+  about seconds ago may already be stale in a multi-session repo.
+
+---
