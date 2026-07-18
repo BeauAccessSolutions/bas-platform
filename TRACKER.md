@@ -3,7 +3,7 @@
 Living status board for the Beau Access Solutions accessibility-app platform. Update as
 things move — this is the single place to see where everything stands.
 
-**Last updated:** 2026-07-18 (a11y enforcement gates merged across page-repair / disability-wiki / BN; reconciled via `/platform-status`)
+**Last updated:** 2026-07-18 (TestFlight round: all 5 apps live — 3 issuer-migration rebuilds + BN/DW first builds; BN wrapper corrected to vabenefitsnavigator.org)
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started · ⏳ blocked / waiting on input
 
 ---
@@ -75,13 +75,15 @@ what gets shipped; "Trigger" = how a deploy happens.
 
 ## 2b. iOS / TestFlight
 
-All three consumer apps are **on TestFlight today** — this is NOT the unstarted Phase 3/4 work the roadmap once implied. Full architecture + update runbook: [docs/mobile-and-testflight.md](docs/mobile-and-testflight.md).
+**All FIVE apps are on TestFlight as of 2026-07-18** — the 2026-07-18 upload round shipped issuer-migration rebuilds of the original three (all now authenticate natively against `id.beauaccesssolutions.com`, unblocking the old-host 301 retirement in §2) plus **first builds of Benefits Navigator and Disability Wiki**. Full architecture + the proven device-free archive→upload runbook: [docs/mobile-and-testflight.md](docs/mobile-and-testflight.md).
 
 | App (TestFlight name) | Build type | Source repo (⚠ remote?) | Loads / contains | How an edit reaches testers |
 |---|---|---|---|---|
-| **Access Atlas** | Capacitor / WKWebView **wrapper** | `access-directory` (`capacitor.config.ts`) | the **live DO site** at runtime | redeploy the web app (auto on `main`) → relaunch app. **No new build** unless the native shell changes |
-| **KindredAccess** | Capacitor / WKWebView **wrapper** | **`kindredaccess-ios`** — ✅ pushed `Beaudoin0zach/kindredaccess-ios` (private) | **`kindredaccess.org`** at runtime | **SSH-redeploy** the site (manual) → relaunch app. No new build for content |
-| **Baseline** = CIT | **native Expo / React Native** (EAS) | **`bas-apps/apps/cit`** — ✅ pushed `Beaudoin0zach/bas-apps` (private; monorepo also holds shared `ui`/`auth`/`tokens`/`i18n` packages) | native RN screens; calls the CIT API backend | **`eas update`** (OTA, JS-only, no rebuild) or **`eas build` + `eas submit`** (native changes). EAS Update channels configured |
+| **Access Atlas** — 1.0.0 (3) | Capacitor / WKWebView **wrapper** | `access-directory` (`capacitor.config.ts`) | the **live DO site** at runtime | redeploy the web app (auto on `main`) → relaunch app. **No new build** unless the native shell changes |
+| **KindredAccess** — 1.0 (2) | Capacitor / WKWebView **wrapper** | **`kindredaccess-ios`** — ✅ pushed `Beaudoin0zach/kindredaccess-ios` (private) | **`kindredaccess.org`** at runtime | **SSH-redeploy** the site (manual) → relaunch app. No new build for content |
+| **Baseline** = CIT — 1.0.0 (7) | **native Expo / React Native** (EAS) | **`bas-apps/apps/cit`** — ✅ pushed `Beaudoin0zach/bas-apps` (private; monorepo also holds shared `ui`/`auth`/`tokens`/`i18n` packages) | native RN screens; calls the CIT API backend | **`eas update`** (OTA, JS-only, no rebuild) or **`eas build` + `eas submit`** (native changes). EAS Update channels configured |
+| **Benefits Navigator** — 1.0 (2) | Capacitor 8 / WKWebView **wrapper** | `benefits-navigator` `mobile/` (BN PR #30) | **`vabenefitsnavigator.org`** at runtime | redeploy the web app → relaunch app. ⚠️ build 1.0 (1) wrapped the `ondigitalocean.app` URL where the Keycloak callback isn't registered (login dead-ends) — superseded same-day by 1.0 (2); don't distribute (1) |
+| **Disability Wiki** — 1.0 (1) | Capacitor 6 **bundled-static** (offline-first — NOT a URL wrapper) | `disability-wiki` `app/` (DW PR #43) | bundles `site/dist` (~102 MB) into the binary | **new build required** for content — the opposite tradeoff from the wrappers, deliberate (crisis pages must load offline). Known gap: in-app `/contribute` form has no backend in the bundle |
 
 **Key facts:**
 - **Two of three are thin webview wrappers** — their "app" is really the hosted website. Edits ship by **web deploy**, not a TestFlight rebuild. Only native-shell changes (icon, splash, `server.url`, plugins, version bump) need a new build.

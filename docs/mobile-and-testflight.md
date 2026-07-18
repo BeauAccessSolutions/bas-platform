@@ -12,7 +12,7 @@ live on it). See [TRACKER.md §2b](../TRACKER.md).
 | **Access Atlas** | Access Atlas | Capacitor / WKWebView **wrapper** | `access-directory` (`capacitor.config.ts`) | 🟢 **1.0.0 (3)** — issuer-migration rebuild, uploaded 2026-07-18. NB: ASC already held a build 2 no doc knew about |
 | **KindredAccess** | KindredAccess | Capacitor / WKWebView **wrapper** | `kindredaccess-ios` ⚠️ *no remote* | 🟢 **1.0 (2)** — issuer-migration rebuild, uploaded 2026-07-18 |
 | **Baseline** | Chronic Illness Tracker (CIT) | **native Expo / React Native** (EAS) | `bas-apps/apps/cit` (remote `Beaudoin0zach/bas-apps`) | 🟢 **1.0.0 (7)** — issuer-migration rebuild, EAS build + auto-submit 2026-07-18 |
-| Benefits Navigator | Benefits Navigator | Capacitor 8 / WKWebView **wrapper** | `benefits-navigator` `mobile/` (merged to `main`, PR #30) | 🟢 **1.0 (1)** — FIRST build, uploaded 2026-07-18 (`com.beauaccess.benefitsnavigator`; wraps **staging**, deliberately) |
+| Benefits Navigator | Benefits Navigator | Capacitor 8 / WKWebView **wrapper** | `benefits-navigator` `mobile/` (merged to `main`, PR #30) | 🟢 **1.0 (2)** — uploaded 2026-07-18 (`com.beauaccess.benefitsnavigator`; wraps **`vabenefitsnavigator.org`**). ⚠️ 1.0 (1) wrapped the `ondigitalocean.app` URL where the Keycloak callback isn't registered — login dead-ends; don't distribute it |
 | Disability Wiki | Disability Wiki | Capacitor 6 **bundled-static** (offline-first, NOT a URL wrapper) | `disability-wiki` `app/` (merged to `main`, PR #43) | 🟢 **1.0 (1)** — FIRST build, uploaded 2026-07-18 (`org.disabilitywiki.app`, ~102 MB bundle) |
 
 > **Archive/upload runbook (proven 2026-07-18, all four Capacitor apps):** archive with
@@ -36,12 +36,13 @@ the live site.
 
 - **Access Atlas** loads `https://access-atlas-qd464.ondigitalocean.app`
 - **KindredAccess** loads `https://kindredaccess.org`
-- **Benefits Navigator** (scaffolded) loads `https://benefits-navigator-staging-3o4rq.ondigitalocean.app`
-  — **staging, deliberately**: verified 2026-07-18 that no BN prod app or custom
-  domain exists, and while BN is Candidate under ADR-005 internal testers should
-  hit staging. Its `allowNavigation` already targets `id.beauaccesssolutions.com`
-  (staging's live issuer), so it starts on the config the other three are
-  rebuilding toward.
+- **Benefits Navigator** loads `https://vabenefitsnavigator.org` (the DO app's
+  PRIMARY domain — the app is *named* "benefits-navigator-staging" but serves the
+  real site; the "no prod exists" conclusion of 2026-07-18 was wrong, reached by
+  guessing DNS names instead of reading the app spec's `domains:` block). The
+  Keycloak client registers only this domain's callback, so a wrapper pointed at
+  the `ondigitalocean.app` URL can't complete login — that mistake shipped as
+  1.0 (1) and was superseded same-day by 1.0 (2).
 
 **Consequence:** a code/content edit ships by **redeploying the web app**, NOT by
 rebuilding for TestFlight. A tester sees it on next launch (force-quit to clear

@@ -170,3 +170,17 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - **zsh `echo ===` → `(eval):2: == not found`:** a bare `===` token is parsed, not echoed.
 
 ---
+## Session: 2026-07-18
+
+**Project:** bas-platform (TestFlight round: 3 rebuilds + BN/DW first builds)
+
+### Failures
+- **[investigation] Concluded "BN has no prod domain" from guessed DNS names → wrong; wrapper 1.0(1) shipped against the `ondigitalocean.app` URL where the Keycloak callback isn't registered (login dead-ends).** Probed `benefits.beauaccesssolutions.com`-style guesses and `doctl apps list` DefaultIngress, never read the app spec's `domains:` block — `vabenefitsnavigator.org` was PRIMARY all along. Caught same-day via a tracker row from the rotation session; superseded by 1.0(2) on the prod URL. Fix pattern: `doctl apps spec get | grep -A4 domains:` is the domain inventory, not DNS guessing.
+- **[cap add ios] CocoaPods crashed (Unicode/ASCII-8BIT)** → `LANG=en_US.UTF-8`. Then **xcodebuild "requires Xcode"** (xcode-select → bare CLT) → per-process `DEVELOPER_DIR`. Both now in LESSONS + mobile doc.
+- **[xcodebuild archive] Signed archive failed twice** — first "No Accounts" (no Xcode Apple ID session), then "team has no devices" (automatic signing wants a dev profile at archive). → unsigned archive + `-exportArchive -allowProvisioningUpdates` (distribution profiles need no devices).
+- **[upload] Access Atlas "Redundant Binary Upload"** — ASC already held a 1.0(2) no doc knew about; local regenerated project said 1.0(1). → bump past ASC's number; ASC is the only source of truth.
+- **[gh] `pr create` "must be a collaborator"** — active account was LangworthyWatch. → `gh auth switch -u Beaudoin0zach`, work, switch back (now in bas-infra-access memory).
+- **[eas-cli] No `submission:list`/`submission:view` in any version; first Expo GraphQL guess (`submission` root field) invalid** → `submissions.byId` query with the `~/.expo/state.json` session token works for submission status.
+- **[monitoring] Piped `xcodebuild … | tail` into the task output** swallowed failure diagnostics twice → redirect full output to a log file, grep the log.
+
+---
