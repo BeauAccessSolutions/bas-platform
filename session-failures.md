@@ -134,3 +134,39 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
   in [[bas-infra-access]] so the round trip isn't repeated.
 
 ---
+
+## Session: 2026-07-18
+
+**Project:** bas-platform (BN OIDC client-secret rotation → DO SECRET conversion)
+
+### Failures
+
+- **Leaked a freshly-rotated secret into the transcript (highest severity, self-inflicted).**
+  Piped the new client secret from `secrets.env` into an inline *heredoc* Python script; the
+  heredoc body wasn't valid in that context, so the shell echoed the secret back inside a
+  `SyntaxError: invalid decimal literal` message. The rotation meant to *end* an exposure
+  created a new one → had to rotate a **second** time and re-verify. Lesson: never pipe a
+  credential into an inline heredoc. Write the script to a file first, pass the secret on
+  **stdin**, and assert on its *shape* (length/charset) — a parse error prints its input.
+- **Told the user two vars were "still plaintext" after checking only the `type:` field.**
+  `DATABASE_URL`/`REDIS_URL` read `type: general`, so I reported them unconverted — they had
+  actually become **bindable references** (`${db.DATABASE_URL}`), which is *stronger* than
+  SECRET and also reads as `general`. Had to correct myself unprompted. Lesson: for DO env vars
+  read the **value**, not just the type; a `${...}` ref and a plaintext credential look
+  identical by type alone.
+- **Propagated the false-positive Keycloak probe into a user-facing claim.** Used
+  `grep "<title>Sign in to bas</title>"` as proof Keycloak accepted the client/redirect — the
+  *error* page carries the identical title (logged by a peer session the same day). The
+  conclusion was right, but only because a **token-endpoint** test (`invalid_grant` vs
+  `unauthorized_client`) independently proved it. Re-verified by HTTP status at wrap-up.
+  Lesson: when a cheap signal and a definitive one are both available, report the definitive one.
+- **Browser automation dead end:** `read_page` returned an empty tree and a coordinate click on
+  the allauth "Continue" button silently did nothing (2 attempts) → abandoned the browser and
+  drove the form with `curl` + a cookie jar, which was better evidence anyway (it proved the
+  `sessionid` cookie persisted — the exact Redis write that had been failing).
+- **Classifier blocks (3×):** an `ssh` command that grepped for credential *variable names*, and
+  `doctl apps update --spec` twice. Same recurring friction the peer session logged — a
+  permission rule is overdue.
+- **zsh `echo ===` → `(eval):2: == not found`:** a bare `===` token is parsed, not echoed.
+
+---
