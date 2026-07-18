@@ -77,3 +77,32 @@ Format per entry: **Lesson** — what broke → the fix. `(source-app, YYYY-MM-D
   run, so a new colour can't slip in unchecked. (Re-introducing the `#999` border reproduces 2.85:1 and
   fails.) `packages/ui` and the Keycloak theme still have no such script.
   (page-repair, 2026-07-13)
+
+## Identity, OIDC & mobile wrappers
+
+- **Changing the shared IdP host silently strands every native wrapper — the web-side flip is
+  invisible to them, and each wrapper tech hides the host in a different place.** Migrating the
+  platform Keycloak to `id.beauaccesssolutions.com` was a one-line env change for the web apps, but
+  three native surfaces still had the old host baked in and would have bounced in-app login out to
+  Safari (or blocked it outright): Access Atlas's Capacitor `server.allowNavigation` listed the old
+  IdP host; the KindredAccess wrapper had **no** `allowNavigation` at all *and* `WKAppBoundDomains`
+  (Info.plist) locked to its own domain with `limitsNavigationsToAppBoundDomains: true`, which makes
+  iOS refuse navigation outside that list; and CIT/Baseline bakes `EXPO_PUBLIC_KEYCLOAK_ISSUER` into
+  `eas.json` at **build** time. None of this surfaces in web verification — a green `/oidc/…`
+  redirect proves nothing about the wrappers. → Treat any issuer/IdP change as a **native release**,
+  not a config flip: enumerate every wrapper in the same change (Capacitor `allowNavigation` +
+  `WKAppBoundDomains`; Expo `eas.json` env), and keep the OLD host serving until the replacement
+  builds actually ship. (bas-platform, 2026-07-17)
+
+- **BAS realm client IDs are NOT uniformly suffixed — infer one and you'll wire an app to a client
+  that doesn't exist.** The `bas` realm holds `cit-web`, `kindredaccess-web`, `benefits-navigator-web`,
+  `disability-wiki-web` … but `access-atlas` (bare). Setting Disability Wiki's `KEYCLOAK_CLIENT_ID`
+  to `disability-wiki` by analogy with `access-atlas` pointed it at a nonexistent client: the app
+  looked fully configured and failed only at the moment of login. → Never infer a client id — verify
+  it against the realm first. No admin creds needed: GET the authorize endpoint with the candidate id
+  and **read the HTTP status, not the page body**: `302` = client exists; `400` + "Invalid parameter:
+  redirect_uri" = exists but that redirect isn't registered; `400` + "Client not found" = wrong id.
+  ⚠️ Do **not** discriminate on seeing the themed "Sign in to bas" heading — Keycloak's *error* page
+  carries the identical `<title>`, so grepping for it reports missing clients as present (that false
+  positive was hit and corrected on 2026-07-18; an earlier draft of this very entry recommended it).
+  (bas-platform, 2026-07-17)
