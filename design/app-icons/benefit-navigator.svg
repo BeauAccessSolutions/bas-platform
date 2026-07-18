@@ -1,20 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <!-- Benefit Navigator — M1 combat helmet, side profile: flared rim, rim-thickness
-       shadow band, hanging chinstrap. Two-tone cream for depth; gold star. -->
+  <!-- Benefit Navigator — modern combat helmet (ACH/PASGT), side profile.
+       Modern read = SQUAT, wide, deep dome with near-vertical lower sides and
+       a tight rim hugging the shell (vs the M1's tall bowl + flared brim),
+       plus the multi-point chinstrap harness. Gold star on the shell. -->
   <rect width="1024" height="1024" fill="#20355E"/>
-  <path d="M 232 618
-           C 224 588, 244 566, 268 556
-           C 292 420, 380 312, 512 306
-           C 656 300, 762 412, 776 556
-           C 800 566, 820 590, 810 620
-           C 730 660, 610 676, 512 676
-           C 414 676, 300 656, 232 618 Z" fill="#F5F1E8"/>
-  <path d="M 232 618
-           C 300 656, 414 676, 512 676
-           C 610 676, 730 660, 810 620
-           C 736 690, 618 712, 512 712
-           C 406 712, 296 682, 232 618 Z" fill="#CFC7B4"/>
-  <path d="M 392 700 C 428 806, 596 806, 640 694" fill="none" stroke="#CFC7B4" stroke-width="30" stroke-linecap="round"/>
-  <circle cx="516" cy="782" r="24" fill="#CFC7B4"/>
-  <path d="M512 400 L534 456 L594 460 L548 498 L562 557 L512 525 L462 557 L476 498 L430 460 L490 456 Z" fill="#E8B44A"/>
+
+  <!-- chinstrap harness (hangs below the rim) -->
+  <g stroke="#CFC7B4" stroke-width="24" fill="none" stroke-linecap="round">
+    <path d="M 300 674 L 294 746"/>
+    <path d="M 724 674 L 730 746"/>
+    <path d="M 294 746 C 342 802, 682 802, 730 746"/>
+  </g>
+  <rect x="470" y="760" width="118" height="48" rx="16" fill="#CFC7B4"/>
+
+  <!-- shell: squat wide dome, near-vertical lower sides -->
+  <path d="M 512 272
+           C 316 272, 178 400, 174 556
+           L 172 628
+           L 852 628
+           L 850 556
+           C 846 400, 708 272, 512 272 Z" fill="#F5F1E8"/>
+
+  <!-- rim: tight level band hugging the shell, shadowed underside -->
+  <rect x="162" y="620" width="700" height="50" rx="25" fill="#F5F1E8"/>
+  <path d="M 162 646 C 162 660, 174 670, 188 670 L 836 670
+           C 850 670, 862 660, 862 646 Z" fill="#CFC7B4"/>
+
+  <!-- gold star -->
+  <path d="M 512 354 L 529.6 405.7 L 584.3 406.5 L 540.5 439.3 L 556.7 491.5
+           L 512 460 L 467.3 491.5 L 483.5 439.3 L 439.7 406.5 L 494.4 405.7 Z"
+        fill="#E8B44A"/>
 </svg>
