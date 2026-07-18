@@ -222,3 +222,39 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
   about seconds ago may already be stale in a multi-session repo.
 
 ---
+
+## Session: 2026-07-18 (cont. — skill-eval harness debugging)
+
+**Project:** bas-platform (description optimizer for `do-app-platform-debug`)
+
+### Failures
+
+- **Read a degenerate metric as a real result and iterated on it for 5 rounds.** The description
+  optimizer reported `trigger_rate 0.00` on all 20 queries with the score frozen at exactly 50%; I
+  treated it as "the description triggers poorly" and let it generate candidates. The candidates were
+  never under test at all: the harness installs a hash-named *clone* of the skill, but the
+  already-installed real skill shadowed it, so the model triggered the incumbent and detection —
+  keyed on the clone's name — scored every correct trigger as a miss. → Quarantine the installed
+  skill for the run. An all-zero or exactly-50% score is an instrument failure; reproduce one case
+  end-to-end against the raw trace before believing any aggregate.
+- **Then believed the *plausible* wrong number.** With shadowing fixed, results read
+  `precision=100% recall=6%` — which looks like a genuine finding about an over-narrow description.
+  It was a 30s/query timeout: generous solo (6.4s to first tool call) but a coin flip under 10
+  parallel subprocesses. Caught only by noticing iteration wall-time implied ~28s/run. → Cross-check
+  scores against wall-clock; the impossible number is easy to spot, the plausible one is not.
+- **Told the user a branch was unmerged when it had already been merged.** Asserted that
+  `claude/elegant-banach-721970` was stranded and its BN OIDC doc existed only there — both false at
+  the time; a peer had merged it ~15 min earlier. I reasoned from a session-start snapshot instead of
+  checking. → `git log origin/main..<branch>` before any claim about merge state.
+  **Note the real gap:** `LESSONS.md` *already* carried an entry for this exact mistake ("the working
+  tree is not the repo", citing this same 93-line doc), loaded in-session, and it did not fire. A
+  lesson that isn't consulted at the moment of asserting is not a control.
+- **Runner script failed on first launch** — `mv` into a `.quarantine` dir the script never created.
+  Failed safe (skill untouched); added `mkdir -p`. → Scripts that relocate live assets should create
+  their destination, and must fail before touching the source.
+- **Background job killed mid-run when this session's worktree was recycled** by a peer. The restore
+  trap fired correctly and the skill came back intact. → Long background jobs that mutate shared
+  state need a trap, and verifying the restore is not optional.
+- Minor: `timeout` is not present on macOS (GNU coreutils only).
+
+---
