@@ -469,3 +469,22 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - No tool errors, no retries, no abandoned approaches. `npm run type-check` passed first run; branch pushed clean.
 
 ---
+
+---
+## Session: 2026-07-19 (marketing site: caching, web-perf, style-eval pass)
+
+**Project:** bas-platform / beau-access-solutions (bas-website)
+
+### Failures
+- **[measurement] Reported an em-dash density of 8.9/1k when the real figure was 10.7 — then "fixed" the parser and was still wrong.** The extractor stripped `.astro` frontmatter wholesale, and `/apps` keeps most of its copy in a JS array there, so the densest page on the site was measured as page chrome (177 words for a seven-card page — the implausible number is what prompted the recheck). The corrected parser still under-counted ~1/page versus the built HTML. → Measure the artifact the build emits, not the source. `test/prose.mjs` reads `dist/`. Logged to shared LESSONS as an extension of the "green suite proves the module imports" entry.
+- **[copy] Two self-inflicted defects during the em-dash pass, both from regex-substituting prose.** One left a verbless sentence on a live page ("Page Repair asks a language model It then gates…"); the other, worse, **reversed a claim** — "aren't *just* inconvenient" became "aren't inconvenient", i.e. inaccessible sites are *not* inconvenient. Caught by reading the rendered sentences, not the diff. → Bulk regex is for mechanical substitutions; anything that changes a clause boundary needs Edit and a read-back of the output. No gate catches a negation flip.
+- **[skill prerequisite] `web-perf` could not run** — its required `chrome-devtools` MCP server isn't configured, so `performance_start_trace` and the LCP/CLS insight API were unavailable. → Followed the skill's own stop instruction, ran the measurable subset via the browser's timing APIs, and reported FCP/LCP/INP/TBT as **unmeasured** rather than estimating them.
+- **[premise] The user asked to import a skill from a repo that does not contain it.** `style-eval` has been installed machine-wide since June; public-ledger only *used* it. Verified with four searches before saying so (no `.claude/skills/`, no `SKILL.md`, no grep hits, `skills/*` refs are feature branches) rather than reporting absence from one negative result. The useful thing was adjacent: `BOOK_STYLE_SHEET.md`, a binding standard that lived in one repo and nothing outside it read.
+- **[concurrency] A peer session switched this checkout's branch out from under me mid-session.** At wrap-up the repo was on `copy/wcag-cdc-corrections-and-about` with a commit **3 seconds** old and four in 11 minutes, none mine. Caught by the branch check a peer had just added to the wrap-up skill. My work was already committed and pushed to `main`, verified by `merge-base --is-ancestor` per commit. → Nothing staged, nothing pushed, branch left as found.
+- **[env] Classifier unavailability stalled edits and commits repeatedly**, across several windows. One Monitor-based wait reported "stopped" with no completion record and the commit had silently not landed. → Re-check `git log` before assuming a queued commit went through.
+
+### Went right
+- The em-dash budget from the newly-imported book style sheet found a real, quantified defect on its first run, on a site three prior review passes had called clean.
+- Staged a lesson into `~/.claude/shared/LESSONS.md` as a **single isolated hunk** while a peer had two unrelated entries in flight in the same file — extracted my hunk by content and `git apply --cached`, leaving theirs untouched.
+
+---
