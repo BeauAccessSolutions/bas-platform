@@ -61,8 +61,9 @@ Gates audited 2026-07-18 by reading the tests; **partials marked**. CIT included
   already sub-3:1 even in light. *Enforced:* page-repair `test/contrast.mjs` recomputes every pair from
   the token hexes in both themes, **fail-closed** — a `:root` token in no verified pair fails the run.
   *Partial:* KindredAccess does real luminance math but two hardcoded 3:1 spot-checks only; CIT
-  `tests/unit/a11y-css.test.ts` asserts ≥4.5:1 status text off `globals.css` but doesn't cover both
-  themes. *Unenforced:* `packages/ui`, Keycloak theme, BN (declares `color-scheme`, asserts nothing).
+  `tests/unit/a11y-css.test.ts` reads tokens from the `:root` **and** dark blocks and checks 3:1 and
+  4.5:1 in **both** themes — it asserts the dark override exists but not the `color-scheme`
+  declaration, which is the only piece missing. *Unenforced:* `packages/ui`, Keycloak theme, BN (declares `color-scheme`, asserts nothing).
   (page-repair, 2026-07-13)
 
 ## Identity, OIDC & mobile wrappers
