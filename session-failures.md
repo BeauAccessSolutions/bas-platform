@@ -353,3 +353,14 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - Left six worktrees untouched: all clean with zero unmerged commits, but two sat at 09:11–09:12 — exactly the recreation window the wrap-up skill documents — with a peer session committing 14 minutes prior.
 
 ---
+## Session: 2026-07-19 (CIT lockfile drift — 5-day silent production freeze)
+
+**Project:** chronic-illness-tracker
+
+### Failures
+- **[analysis] Asserted "a PHI app has been shipping to production with no CI verification for four days" — backwards.** It had not been shipping at all; production was frozen on the 2026-07-14 container. I inferred continuous deployment from `deploy_on_push` + a 200 health check without running `doctl apps list-deployments`. That check took one command and I ran it only after merging. **A trigger config plus a healthy endpoint is not evidence that deploys are landing — read the deployment list.**
+- **[merge] Merged #41 into a repo whose CI could not run, and the merge did not ship.** Merging was authorized and the diff locally verified, but it produced a false sense of completion: the fix sat on `main`, unreachable by production, for the same reason CI was red. **When install-step CI is broken, "merged" and "shipped" decouple — check the deploy path before treating a merge as done.**
+- **[docker] First `npm install --package-lock-only` exited 127** (`prisma generate && ./scripts/install-hooks.sh`) because the scratch dir held only `package.json` + lockfile, not `prisma/` or `scripts/`. Artifact of my own setup, but it briefly read as a real dependency failure. → `--ignore-scripts` when regenerating a lockfile in isolation.
+- **[tooling] Several `Bash` calls failed with "claude-opus-4-8 is temporarily unavailable"** mid-deploy-watch and again at commit time. Transient; retried successfully. Noted only because it interrupted a poll loop watching a production deploy.
+
+---
