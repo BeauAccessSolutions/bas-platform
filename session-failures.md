@@ -445,3 +445,14 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 
 ---
 
+## Session: 2026-07-19 (cont. — gate scope + peer-commit push decision)
+
+**Project:** bas-platform / ~/.claude
+
+### Failures
+- **[infra] Bash tool unavailable for several minutes** (safety classifier down), blocking a one-command commit across four attempts. Not a code failure, but worth recording: read-only tools kept working, so the right move was to use Read to review the pending diff and stage the exact command, then run it immediately on recovery — rather than idling or retrying blind.
+- **[review] The diff I was about to commit had grown while I was blocked** — `skills/wrap-up/SKILL.md` went 9 → 15 insertions, picking up a second peer hunk dated the next day. Committing the version I'd reviewed the night before would have shipped an unreviewed change. → Re-read the diff after any interruption; "I already reviewed this" expires.
+- **[gate coverage] `SKILL.md` was not in the pre-commit `SHARED_FILES` list**, so the gate built specifically for peer-edit collisions did not cover the file where the collision was actually visible (two peer hunks accumulated over two days). → Added it, accepting that it fires more often since skill edits are commonly multi-region.
+- **[git] Could not isolate my own commit for pushing** — mine sat on top of two peer commits, so no targeted `<sha>:main` push existed. Unlike the previous night, the history was genuinely interleaved. → Handed the decision to the owner with the list rather than guessing; pushed all five on explicit instruction.
+
+---
