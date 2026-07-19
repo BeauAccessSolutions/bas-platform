@@ -120,6 +120,13 @@ expectations *simultaneously*.
 status types route through it. Requirements:
 - Status is conveyed as **text/shape, never color or animation alone**.
 - Failures → `role="alert"` (assertive). Success/delivery/typing/connectivity → `aria-live="polite"`.
+  ⚠️ **This is the web spelling of the contract, not the contract.** On React Native surfaces
+  (`bas-apps`/native CIT) `accessibilityRole="alert"` announces **nothing** on either platform —
+  announcing needs `accessibilityLiveRegion` (Android-only) or `AccessibilityInfo` (iOS, and
+  delayed past the layout pass or the utterance is cut off). Taking this line literally on native
+  is what shipped 14 silent status messages in CIT. Native surfaces route through
+  `StatusMessage`/`announce` in `packages/ui`; the intent (failures interrupt, the rest waits) is
+  what ports, not the attribute names.
 - **Debounce announcements** so screen readers aren't re-reading "typing…" on every keystroke.
 - OTP entry is a **single labeled field**, not 6 unlabeled boxes (which break paste + screen readers).
 - Visible focus everywhere (SC 2.4.11 Focus Not Obscured, 2.4.13 Focus Appearance); no cognitive
