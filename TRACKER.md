@@ -3,7 +3,7 @@
 Living status board for the Beau Access Solutions accessibility-app platform. Update as
 things move — this is the single place to see where everything stands.
 
-**Last updated:** 2026-07-19 (⚠️ **all 11 repos transferred to the `BeauAccessSolutions` GitHub org** — these docs are stale in 38 places and **Netlify CD needs re-checking**, since a GitHub App install does not follow a repo into an org and fails silently; BN `.env.docker` found in public history, assessed as dev-local with one `SECRET_KEY` check open)
+**Last updated:** 2026-07-19 (🔴 **marketing-site apex is serving a STALE Netlify build** — the org transfer broke Netlify's GitHub App so it stopped building 4 commits ago; a peer's Cloudflare Pages deploy is fully current at `beau-access-solutions.pages.dev` but the apex DNS was never cut over. Founder note shipped, live on Pages, not on the apex)
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started · ⏳ blocked / waiting on input
 
 ---
@@ -52,10 +52,19 @@ redirects the old paths, so git keeps working. Consequences:
   a mechanical pass but was deferred while a peer session was committing here.
 - **9 of 10 local checkouts already point at the new org**; `page-repair` and `bas-apps` still have
   the old remote (cosmetic — redirects work).
-- ⬜ **Check Netlify before the next content change.** Its GitHub App authorization is *per-account*
-  and does **not** follow a repo into an org. Git pushes keep succeeding via redirect, so a broken
-  link fails **silently**: the push works, the site just stops updating. This is the same failure
-  shape as the 2026-07-16 wrong-repo incident below.
+- 🔴 **CONFIRMED — the marketing site is serving a STALE Netlify build, and this exact failure is why.**
+  Netlify's GitHub App authorization is *per-account* and did **not** follow the repo into the org, so
+  Netlify silently stopped building at commit `5d88556` (the last push made while the repo was still
+  `Beaudoin0zach/bas-website`). Four commits since — ADA-post removal, photo resize, the **Cloudflare
+  Pages migration**, and the **founder note** — pushed to GitHub fine and were never built. Git pushes
+  succeeding via redirect is exactly what hid it. **Compounding twist:** a peer session meanwhile ported
+  the site to **Cloudflare Pages** (`ce25589`), and `beau-access-solutions.pages.dev` is **fully current**
+  (has everything, auto-builds from the org repo) — but **DNS was never cut over**: the apex still
+  resolves to `75.2.60.5` / `server: Netlify`. So the fresh build exists on a URL nobody visits while the
+  public apex shows a 4-commit-old copy. ⬜ **Fix: cut apex DNS `beauaccesssolutions.com` → the Pages
+  project** (owner decision — outward-facing infra on a live domain, not automatable here). That
+  unfreezes the migration + founder note + all stranded commits at once. Same failure shape as the
+  2026-07-16 wrong-repo incident below — second silent-deploy break in three days.
 - **5 repos are now public:** page-repair, disability-wiki, access-atlas, bas-platform, and
   **benefits_navigator**.
 
