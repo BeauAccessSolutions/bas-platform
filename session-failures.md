@@ -282,3 +282,16 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - Minor: `doctl apps spec validate` rejects a spec pulled from a live app (encrypted `EV[...]` secrets are "not allowed before app is created"); `doctl apps propose --app <id>` is the validator that works on an existing app — and its `--output json` is what proves an ingress field parsed rather than being silently dropped.
 
 ---
+## Session: 2026-07-18 (evening — lessons prune + concurrency gates)
+
+**Project:** bas-platform / ~/.claude
+
+### Failures
+- **[git] Published a peer session's commits twice in one evening** — `git push` in the shared bas-platform checkout carried `b3c70f1`, then an hour later `bbfcc67`, both a peer's icon work. The second happened *after* I'd written the "push only your own commits" rule into LESSONS.md, which is the finding: peers commit into the same local working copy, not just the same remote, and a once-per-session ownership check goes stale immediately. → Built a `pre-push` gate gating on ambiguity (>1 outgoing commit) rather than identity, since every session commits as the same git user.
+- **[git] Swept a peer's two LESSONS.md entries into my own commit** — `git add shared/LESSONS.md` staged their appended entries alongside my edit. The pre-push gate could not see this; by then it was one commit. → Built a `pre-commit` gate on hunk count for shared docs. Left their content intact and disclosed it in the commit message rather than stripping it.
+- **[hooks] First pre-commit gate previewed a blank line instead of the peer's entry text** — it printed each hunk's first added line, and the peer's append began with a newline, hiding the one thing that makes a foreign edit recognizable. Caught only because the test used the real failure shape. → Skip to the first line with actual content.
+- **[hooks] Near-miss: setting `core.hooksPath` globally would have silently disabled every repo's own hooks** — including public-ledger's publication validator, CIT's sensitive-file check, and 4 repos' conventional-commit hooks. Caught by scanning `.git/hooks` across all repos *before* setting it. → Dispatcher chains to each repo's own hook; gates scoped to a designated-repo list.
+- **[prune] Index jumped 40→42 entries mid-pass** — read as a bug in my own pruning before checking `git diff`; it was the peer's two new entries landing in the file.
+- Minor: `doctl apps spec validate` can't validate a spec pulled from a live app (encrypted `EV[...]` secrets); `doctl apps propose --app <id> --output json` is the one that works and also proves a field parsed rather than being dropped.
+
+---
