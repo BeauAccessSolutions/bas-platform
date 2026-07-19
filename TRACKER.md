@@ -3,7 +3,7 @@
 Living status board for the Beau Access Solutions accessibility-app platform. Update as
 things move — this is the single place to see where everything stands.
 
-**Last updated:** 2026-07-19 (marketing site: contact form rebuilt with real validation/error/success states, and **real dark mode** on a new semantic token layer — the both-theme gate caught a pre-existing light-theme logo failure at 3.98:1 that three prior review passes missed)
+**Last updated:** 2026-07-19 (marketing site: contact form rebuilt with real validation/error/success states, and **real dark mode** on a new semantic token layer — the both-theme gate caught a pre-existing light-theme logo failure at 3.98:1 that three prior review passes missed) · Disability Wiki: `repos/` symlink hazard resolved (status tooling now probes it), and the `gh` account-flip hazard recurred with a second symptom — it breaks `gh pr create`, not just PR counts
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started · ⏳ blocked / waiting on input
 
 ---
@@ -38,9 +38,10 @@ Netlify incident, lives in the **private** `bas-internal` repo
 (`infra/repo-and-disk-map.md`) — it enumerates private repo names, disk paths, and
 unrelated personal projects, so it stays out of this public hub.
 
-One hazard worth stating here: **Disability Wiki has no clone under `repos/`**, so
-`/platform-status` can't git/HTTP-probe it like the other apps — add one (or a symlink) to
-bring it under the status tooling.
+~~One hazard worth stating here: **Disability Wiki has no clone under `repos/`**~~ —
+**resolved.** `repos/disability-wiki` has been a symlink to `~/projects/disability-wiki`
+since 2026-07-16, and `platform-status.sh` now probes it like every other app (verified
+2026-07-19: reports branch, ahead/behind, worktree state, and all 4 open PRs).
 
 A second, subtler hazard: **`platform-status.sh` reports `open PRs: 0` when `gh` is signed
 in as the wrong account** — it does not distinguish "no PRs" from "cannot see this repo."
@@ -51,6 +52,15 @@ account flips back on its own, so this is not a one-off. Run `gh auth switch --u
 Beaudoin0zach` before trusting a PR count, and treat a `0` as unverified until then —
 **the script currently fails open on this, which is the exact failure mode the board exists
 to prevent.**
+
+Recurred 2026-07-19 with a **second symptom**: the flip also breaks *writes*, not just
+reads. `gh pr create` failed twice with `GraphQL: must be a collaborator
+(createPullRequest)` while `gh api repos/…` showed `{"admin":false,"push":false,"pull":true}`
+— the account had flipped to `LangworthyWatch` mid-session. `git push` over SSH kept working
+throughout, so the branch published fine and only PR creation failed, which makes the cause
+easy to misread as a GitHub outage. It resolved on retry a few minutes later without any
+intervention. If a `gh` write fails with a permissions error, check `gh auth status` before
+believing the error.
 
 ---
 
