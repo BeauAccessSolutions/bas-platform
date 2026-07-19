@@ -456,3 +456,16 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - **[git] Could not isolate my own commit for pushing** — mine sat on top of two peer commits, so no targeted `<sha>:main` push existed. Unlike the previous night, the history was genuinely interleaved. → Handed the decision to the owner with the list rather than guessing; pushed all five on explicit instruction.
 
 ---
+
+## Session: 2026-07-19 (cont. — a11y-probe README)
+
+**Project:** a11y-probe (+ bas-platform hub docs)
+
+### Failures
+- **[handoff] Three technical claims in the inherited task brief were wrong against source.** The brief described the app as "six static test sections" in an "iframe" and did not mention the splash screen. Source disagreed on all three: tests 2–5 are interactive (`game.tsx` counter, assertive region, `focus()`, debounced input echo), the iframe framing only holds on desktop web (the Reddit mobile apps use a native WebView), and `splash.tsx:24-26` carries a **Test 0** that gates everything after it. → Caught only because the brief itself said to verify against source. A confidently-specific handoff reads like a finished finding; the specificity is not evidence.
+- **[search] `grep '^## .*a11y' TRACKER.md` returned nothing and I nearly read it as "a11y-probe is untracked."** The tracker records apps as **table rows**, not headings — the app was on lines 20, 79, 92, 260. → The null-result hook fired and forced the corrected search. Structure assumptions are search assumptions.
+
+### Clean
+- No tool errors, no retries, no abandoned approaches. `npm run type-check` passed first run; branch pushed clean.
+
+---
