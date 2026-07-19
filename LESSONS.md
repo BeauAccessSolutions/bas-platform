@@ -25,26 +25,26 @@ Format per entry: **Lesson** — what broke → the fix. `(source-app, YYYY-MM-D
 The **normative contracts and their gates are C1–C4** in
 [`docs/design-principles.md` §4.1](docs/design-principles.md) — read those for what to *do*. Kept
 here is what that table can't hold: how each one actually broke, and where it is still unenforced.
-Gates audited 2026-07-18 by reading the tests; **partials marked**. CIT was not checked out locally.
+Gates audited 2026-07-18 by reading the tests; **partials marked**. CIT included (it is checked out at
+`~/Chronic-Illness-Tracker`, not under `~/projects/`).
 
 - **C1 — live-region spine.** page-repair routed labeling errors, extension errors and clipboard
-  failures through the same polite `role="status"` region as the success summary, so a failure
-  queued behind the user's current utterance or was missed entirely if they'd navigated on (SC
-  4.1.3). *Enforced:* page-repair `test/unit.mjs` "live-region spine" drives the real content script
-  and asserts both regions exist **before** any message, failures land assertive, partial progress
-  stays polite — gated by CI. BN enforces it more completely still (pre-creation in
-  `tests/test_assistant_template.py` + routing in `tests/js/assistant.a11y.test.mjs`); KindredAccess
-  only the markup half — no routing test, so the bug C1 exists to catch is untested there.
-  *Unenforced:* Access Atlas, Disability Wiki, native CIT. (page-repair, 2026-07-13)
+  failures through the same polite `role="status"` region as the success summary, so a failure queued
+  behind the user's current utterance or was missed if they'd navigated on (SC 4.1.3). *Enforced:*
+  page-repair `test/unit.mjs` drives the real content script and asserts both regions exist **before**
+  any message, failures land assertive, progress stays polite — CI-gated. BN is more complete still
+  (`tests/test_assistant_template.py` + `tests/js/assistant.a11y.test.mjs`); KindredAccess has only the
+  markup half — no routing test, so the bug C1 exists to catch is untested there. *Unenforced:* Access
+  Atlas, Disability Wiki, CIT (verified: no live-region test in `tests/unit/`). (page-repair, 2026-07-13)
 
 - **C2 — streaming announce + focus.** BN's assistant re-announced its response region on every
-  streamed token (machine-gunning the screen reader), and the assertive *error* announce left
-  keyboard/AT focus stranded on the now-removed "Stop generating" button. *Enforced:* the inline
-  template script was extracted to `static/js/assistant.js` so it could be tested —
-  `tests/js/assistant.a11y.test.mjs` pumps 200 deltas, asserts via MutationObserver that the polite
-  region never changes, and checks focus lands on the answer (done) / recovery control (error); CI as
-  `npm run test:js`. ⚠️ `tests/e2e` is **excluded** from BN's pytest run, so a Playwright test there
-  would have gated nothing. *Unenforced:* KindredAccess's chat surface. (benefits-navigator, 2026-07-13)
+  streamed token (machine-gunning the screen reader), and the assertive *error* announce left focus
+  stranded on the now-removed "Stop generating" button. *Enforced:* the inline template script was
+  extracted to `static/js/assistant.js` so it could be tested — `tests/js/assistant.a11y.test.mjs`
+  pumps 200 deltas, asserts via MutationObserver that the polite region never changes, and checks focus
+  lands on the answer / recovery control; CI as `npm run test:js`. ⚠️ `tests/e2e` is **excluded** from
+  BN's pytest run, so a Playwright test there gates nothing. *Unenforced:* KindredAccess's chat
+  surface. (benefits-navigator, 2026-07-13)
 
 - **C3 — double-read.** KindredAccess added a single `ChatStatusAnnouncer` but left
   `role="status"`/`aria-live` on the visible typing/connection/presence nodes, so every change was
@@ -58,38 +58,32 @@ Gates audited 2026-07-18 by reading the tests; **partials marked**. CIT was not 
 
 - **C4 — color-scheme + contrast.** page-repair's options page declared no colors and no
   `color-scheme`, so contrast held in light but was unverified in dark; a `kbd` border at `#999` was
-  already sub-3:1 even in light. *Enforced:* page-repair `test/contrast.mjs` recomputes every pair
-  from the token hexes in both themes, **fail-closed** — a `:root` token in no verified pair fails
-  the run (re-introducing `#999` reproduces 2.85:1 and fails). *Partial:* KindredAccess does real
-  luminance math but two hardcoded 3:1 spot-checks only — no 4.5:1 pair, no `color-scheme` assert.
-  *Unenforced:* `packages/ui`, Keycloak theme, BN (declares `color-scheme`, asserts nothing).
+  already sub-3:1 even in light. *Enforced:* page-repair `test/contrast.mjs` recomputes every pair from
+  the token hexes in both themes, **fail-closed** — a `:root` token in no verified pair fails the run.
+  *Partial:* KindredAccess does real luminance math but two hardcoded 3:1 spot-checks only; CIT
+  `tests/unit/a11y-css.test.ts` asserts ≥4.5:1 status text off `globals.css` but doesn't cover both
+  themes. *Unenforced:* `packages/ui`, Keycloak theme, BN (declares `color-scheme`, asserts nothing).
   (page-repair, 2026-07-13)
 
 ## Identity, OIDC & mobile wrappers
 
-- **Changing the shared IdP host silently strands every native wrapper — the web-side flip is
-  invisible to them, and each wrapper tech hides the host in a different place.** Migrating the
-  platform Keycloak to `id.beauaccesssolutions.com` was a one-line env change for the web apps, but
-  three native surfaces still had the old host baked in and would have bounced in-app login out to
-  Safari (or blocked it outright): Access Atlas's Capacitor `server.allowNavigation` listed the old
-  IdP host; the KindredAccess wrapper had **no** `allowNavigation` at all *and* `WKAppBoundDomains`
-  (Info.plist) locked to its own domain with `limitsNavigationsToAppBoundDomains: true`, which makes
-  iOS refuse navigation outside that list; and CIT/Baseline bakes `EXPO_PUBLIC_KEYCLOAK_ISSUER` into
-  `eas.json` at **build** time. None of this surfaces in web verification — a green `/oidc/…`
-  redirect proves nothing about the wrappers. → Treat any issuer/IdP change as a **native release**,
-  not a config flip: enumerate every wrapper in the same change (Capacitor `allowNavigation` +
-  `WKAppBoundDomains`; Expo `eas.json` env), and keep the OLD host serving until the replacement
-  builds actually ship. (bas-platform, 2026-07-17)
+- **Changing the shared IdP host silently strands every native wrapper — and each wrapper tech hides
+  the host in a different place.** Migrating Keycloak to `id.beauaccesssolutions.com` was a one-line
+  env change for the web apps, but three native surfaces had the old host baked in and would have
+  bounced in-app login to Safari or blocked it: Access Atlas's Capacitor `server.allowNavigation`;
+  KindredAccess with **no** `allowNavigation` *and* `WKAppBoundDomains` locked to its own domain under
+  `limitsNavigationsToAppBoundDomains: true`; and CIT/Baseline baking `EXPO_PUBLIC_KEYCLOAK_ISSUER`
+  into `eas.json` at **build** time. A green web `/oidc/…` redirect proves nothing about any of them.
+  → Treat any issuer change as a **native release**: enumerate every wrapper in the same change, and
+  keep the OLD host serving until the replacement builds ship. (bas-platform, 2026-07-17)
 
 - **BAS realm client IDs are NOT uniformly suffixed — infer one and you'll wire an app to a client
   that doesn't exist.** The `bas` realm holds `cit-web`, `kindredaccess-web`, `benefits-navigator-web`,
-  `disability-wiki-web` … but `access-atlas` (bare). Setting Disability Wiki's `KEYCLOAK_CLIENT_ID`
-  to `disability-wiki` by analogy with `access-atlas` pointed it at a nonexistent client: the app
-  looked fully configured and failed only at the moment of login. → Never infer a client id — verify
-  it against the realm first. No admin creds needed: GET the authorize endpoint with the candidate id
-  and **read the HTTP status, not the page body**: `302` = client exists; `400` + "Invalid parameter:
+  `disability-wiki-web` … but `access-atlas` (bare). Setting Disability Wiki's id to `disability-wiki`
+  by analogy pointed it at a nonexistent client: fully configured-looking, failing only at login. →
+  Verify against the realm — no admin creds needed: GET the authorize endpoint with the candidate id
+  and **read the HTTP status, not the page body**: `302` = exists; `400` + "Invalid parameter:
   redirect_uri" = exists but that redirect isn't registered; `400` + "Client not found" = wrong id.
-  ⚠️ Do **not** discriminate on seeing the themed "Sign in to bas" heading — Keycloak's *error* page
-  carries the identical `<title>`, so grepping for it reports missing clients as present (that false
-  positive was hit and corrected on 2026-07-18; an earlier draft of this very entry recommended it).
-  (bas-platform, 2026-07-17)
+  ⚠️ Never discriminate on the themed "Sign in to bas" heading — Keycloak's *error* page carries an
+  identical `<title>`, so grepping for it reports missing clients as present (an earlier draft of this
+  entry recommended exactly that). (bas-platform, 2026-07-17)
