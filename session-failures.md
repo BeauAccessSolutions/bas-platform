@@ -383,3 +383,65 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - Staging discipline held under a live peer session: 4 files (`env.d.ts` + 3 blog posts) that were mode-flip noise rather than my edits were caught by a `--numstat` zero-zero check and unstaged before commit.
 
 ---
+## Session: 2026-07-19
+
+**Project:** disability-wiki (app announcement banner, ES crisis parity, abuse-page merge review)
+
+### Failures
+
+- **Reported work as "not pushed" when it was already live in production.** Told the user twice the
+  banner work was safe on a branch. It had reached `main` because a *different* branch
+  (`fix/app-mpa-router`) had been cut from it and merged, carrying both commits along. In a repo
+  where merge-to-main publishes with no review gate, "it's on a branch" is not the same as "it is
+  unpublished." Lesson: before claiming anything is unpublished, run `git branch -a --contains
+  <sha>` — the branch you are standing on does not tell you where its commits have travelled.
+- **Astro silently drops whitespace between an expression and an adjacent element.** Source read
+  `{t.text} <a href=…>`, with a literal space; the rendered HTML had none, and
+  "on the way.How to install" shipped to production. Survived review precisely because the *source*
+  is correct — only the built output shows it. Fixed with an explicit `{' '}`. Lesson: for
+  templating languages, verify the rendered artifact, not the template.
+- **Three false-negative verification checks in one session** — each time the page was correct and
+  my check was wrong: (a) grepped `restraining`/`know your rights`, concluded a life-safety page had
+  lost its legal-rights content, when it had survived reworded as "protection order"/"accessible
+  shelter"; (b) polled a hashed CSS URL captured *once*, so a deploy renamed the asset and the poll
+  reported "not live" for 9 minutes on a change that had already shipped; (c) ran an ordering
+  assertion over whole-page HTML, where Starlight's on-this-page nav repeats every heading, so
+  heading positions came from the nav and the phone number from the body. Root cause for all three:
+  grepping raw HTML with boolean pattern-matches instead of scoping to rendered content and
+  comparing sets. Fixed mechanically — `scripts/verify_page.py` (PR #54), each subcommand tested
+  against the case it got wrong *and* given a negative control. Worth noting the direction: all were
+  false negatives (cried wolf); the dangerous direction on a crisis site is a check that passes on a
+  broken page.
+- **`wrangler pages dev` failed to start twice.** First with a hardcoded
+  `--compatibility-date=2026-07-18` the installed workerd binary could not support (max 2026-06-18);
+  then, after removing the flag, with today's date for the same reason — `pages dev` does *not* read
+  `compatibility_date` from the root `wrangler.jsonc`. Cost two restarts before pinning
+  `2026-06-01`. The first failure also silently killed an earlier `preview_start` whose error I did
+  not read at the time.
+- **Built and reverted a `MarkdownContent` override.** Added an offline note to all 56 crisis pages,
+  verified it rendering correctly, *then* measured its position — median 1,111 words into the page,
+  never above 400. Nobody would see it. Reverted. Lesson: measure whether a change can achieve its
+  purpose *before* building it, not after it passes verification; "renders correctly" and "works"
+  are different claims.
+- **Wrote skill guidance that was wrong within the hour.** First draft of
+  `.claude/skills/verify/SKILL.md` said to retire URLs via `astro.config.mjs` `redirects`. That
+  covers the trailing-slash form but emits a meta-refresh page (200, not 301). Corrected to
+  `_redirects` with both URL forms. Lesson: a rule inferred from one observed example is a
+  hypothesis; test the alternative before writing it down as guidance.
+- **`gh pr create` failed twice with `must be a collaborator`** while `git push` over SSH kept
+  working — the active `gh` account had flipped to `LangworthyWatch` (`pull:true, push:false`).
+  Easy to misread as a GitHub outage since pushes succeed. Resolved on retry with no intervention.
+  Recorded in `TRACKER.md` as a second symptom of the known account-flip hazard.
+- **Env, not my error:** the browser screenshot tool returned a blank white frame every time the
+  page was scrolled away from the top (`scrollIntoView`, `End`, anchor navigation all reproduced
+  it). Top-of-page captures worked fine. Worked around it by asserting on rendered text instead,
+  which is better evidence for a prose change anyway — but it means no visual record of the restored
+  sections.
+- **Near-miss, caught by a hook:** a concurrent session's commit landed on my checked-out branch and
+  my `git add`/commit of `TRACKER.md` in the hub was blocked by a pre-commit guard warning the file
+  had 3 independent staged regions. Verified all three were mine via `git diff --cached` before
+  overriding with `STAGE_OK=3`. The paired `git push` in that chain was a no-op (0 ahead), so no
+  peer work was published — but chaining `commit && push` is how that would have happened.
+
+---
+
