@@ -62,7 +62,7 @@ what gets shipped; "Trigger" = how a deploy happens.
 | App | Artifact | Host / platform | Config source | Trigger | URL / DNS | Status |
 |---|---|---|---|---|---|---|
 | **Chronic Illness Tracker** | Next.js web + managed Postgres 17 | **DigitalOcean App Platform** (region `nyc`, `basic-xxs`) | [`.do/app.yaml`](repos/chronic-illness-tracker/.do/app.yaml) — repo `Beaudoin0zach/Chronic-Illness-Tracker`, health `/api/health`, pre-deploy `prisma migrate deploy` | `deploy_on_push` on `main` | 🟢 <https://chronic-illness-tracker-7o7fw.ondigitalocean.app> | 🟢 **live** (auto-deploys `main`) · also the API backend the **Baseline** iOS app calls — see §2b |
-| **Benefits Navigator** | Django + Celery + Redis | **DigitalOcean App Platform** (region NYC, App ID `2119eba2-07b6-405f-a962-d40dd6956137`) | [`DEPLOYMENT.md`](repos/benefits-navigator/DEPLOYMENT.md), `Dockerfile.prod` | git push | 🟢 <https://vabenefitsnavigator.org> (PRIMARY; `www` alias **301s to apex** — see [canonical-host-redirects](docs/deploy/canonical-host-redirects.md)) · <https://benefits-navigator-staging-3o4rq.ondigitalocean.app> (DO default) | 🟡 **staging live** · ⬜ prod · ⚠️ despite the app name, this app **serves the real domain** — verify OIDC on `vabenefitsnavigator.org`, never the `ondigitalocean.app` URL (the Keycloak client registers only the prod callback, so login *cannot* complete there) |
+| **Benefits Navigator** | Django + Celery + Redis | **DigitalOcean App Platform** (region NYC, App ID `2119eba2-07b6-405f-a962-d40dd6956137`) | [`DEPLOYMENT.md`](repos/benefits-navigator/DEPLOYMENT.md), `Dockerfile.prod` · **`PRE_DEPLOY` job seeds reference content** (see §2c) | git push | 🟢 <https://vabenefitsnavigator.org> (PRIMARY; `www` alias **301s to apex** — see [canonical-host-redirects](docs/deploy/canonical-host-redirects.md)) · <https://benefits-navigator-staging-3o4rq.ondigitalocean.app> (DO default) | 🟡 **staging live** · ⬜ prod · ⚠️ despite the app name, this app **serves the real domain** — verify OIDC on `vabenefitsnavigator.org`, never the `ondigitalocean.app` URL (the Keycloak client registers only the prod callback, so login *cannot* complete there) |
 | **KindredAccess** | Django web backend + Capacitor mobile shell | **DigitalOcean Droplet** (Ubuntu 22.04, $12–18/mo) | [`DIGITAL_OCEAN_DEPLOYMENT.md`](repos/kindredaccess/DIGITAL_OCEAN_DEPLOYMENT.md) + `deploy/` systemd units (Gunicorn HTTP + **Daphne WebSockets**, nginx `/ws/` routing) — KA PR #3 | **manual (SSH)** — no auto-deploy | 🟢 <https://kindredaccess.org> | 🟢 **live** · the site the KindredAccess iOS wrapper loads (§2b). Manual deploy: `main` edits only reach the site + app after an SSH redeploy. `www` **301s to apex** (nginx, 2026-07-18 — see [canonical-host-redirects](docs/deploy/canonical-host-redirects.md)) |
 | **Access Atlas** (access-directory) | Astro SSR (zero-JS surface) + Supabase | **DigitalOcean App Platform** (Dockerfile from GitHub) | [`.do/app.yaml`](repos/access-directory/.do/app.yaml) — repo `Beaudoin0zach/access-atlas`, `deploy_on_push: true` on `main` | `deploy_on_push` on `main` | 🟢 <https://access-atlas-qd464.ondigitalocean.app> | 🟢 **live** (deployed 2026-07-10, auto-deploys `main`) · the site the Access Atlas iOS wrapper loads (§2b) |
 | **Disability Wiki** | Static Astro Starlight bundle (~540 pages); contribution write path = **Cloudflare Pages Function** + Supabase moderation queue | **Cloudflare Pages** | `site/` in `Beaudoin0zach/disability-wiki` (`astro.config.mjs`, `wrangler.jsonc`) | `deploy_on_push` on `main` → Pages build | 🟢 <https://disabilitywiki.org> | 🟢 **live** (HTTP 200, 2026-07-16). Static read path has **no DB dependency**; the contribution backend (Keycloak BFF + Supabase) is code-complete but **inert** until a Supabase project + a registered Keycloak client + data-controller sign-off land |
@@ -106,6 +106,41 @@ what gets shipped; "Trigger" = how a deploy happens.
 - **Baseline (CIT) is the exception** — a genuine native app. Its own code edits need `eas update` (OTA) or a full `eas build` + submit. A server-side backend fix (like the AI date-range fix, 2026-07-14) reaches it only through the API, and only for features the native app actually has (it has **no AI-insights screen yet**).
 - **Mobile source backup — complete:** `bas-apps` (Baseline + shared packages), `kindredaccess-ios`, `bas-frontend`, and `access-atlas-mobile` are all now pushed to private `Beaudoin0zach/*` repos. See §6.
 - **External-review blocker (Access Atlas):** a bare webview wrapper is rejected under App Store Guideline 4.2; internal TestFlight (≤100) is fine. Clearing external review needs the camera evidence-photo feature (`access-directory` runbook).
+
+---
+
+## 2c. Seeded reference content (BN)
+
+**Every content-backed page in Benefits Navigator was empty in production until 2026-07-18** — ~197
+authored fixture records had never been loaded. Two independent causes: nothing invoked a loader at
+deploy time (the `PRE_DEPLOY` job ran only `migrate`), and `glossary_terms_expanded.json` was
+**orphaned** — no code path referenced it, so even a successful import would have loaded 50 of 90
+glossary terms.
+
+| Surface | Before | Now |
+|---|---|---|
+| `/exam-prep/glossary/` | 0 | 🟢 **89 terms** (90 records, one cross-file duplicate merged on the `term` upsert key) |
+| `/exam-prep/` | 0 | 🟢 **7 guides** |
+| `/docs/forms/` · `/docs/legal/` · `/docs/exam-guides/` | 0 | ⬜ **61 records prepared, not yet applied** |
+| supportive messages | 0 | ⬜ 36 records, same pending spec change |
+
+**How it ships:** the DO `PRE_DEPLOY` job. Fixtures are *not* all Django fixtures — `examprep`'s are
+plain field dicts that `loaddata` would reject, so they go through `manage.py import_content
+--fixtures` (idempotent `update_or_create`, no `--clear`). The `documentation`/`core` ones are real
+Django fixtures and use `loaddata`.
+
+⚠️ **The job's failure semantics were a landmine.** The command ended in `; exit 0`, so a failed
+migration reported success and the deploy proceeded against an un-migrated database. The pending
+spec change fixes this: `migrate … || exit 1` (blocks the deploy) while content seeding warns
+without blocking. Shell logic verified across all four failure paths before shipping.
+
+⚠️ **`loaddata` overwrites by pk on every deploy** — correct for reference content, but admin edits
+to those records would be reverted. If that's unwanted, they belong in a one-time data migration.
+
+⚠️ **`document_categories.json` is the canonical category taxonomy.** `va_forms.json` used to
+redefine pks 1–3 with different names, so load order silently picked a winner; the duplicates were
+removed (BN PR #38). Established by evidence: `va_forms_additional.json` references pks 4/5/6 which
+exist only in the dedicated file.
 
 ---
 

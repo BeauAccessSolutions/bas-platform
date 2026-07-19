@@ -295,3 +295,16 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - Minor: `doctl apps spec validate` can't validate a spec pulled from a live app (encrypted `EV[...]` secrets); `doctl apps propose --app <id> --output json` is the one that works and also proves a field parsed rather than being dropped.
 
 ---
+## Session: 2026-07-18 (evening — BN icon iteration, link-trap audit, content seeding)
+
+**Project:** bas-platform / benefits-navigator / disability-wiki
+
+### Failures
+- **[icons] Three failed passes at the helmet ear cutout before abandoning it.** Full-width scallop ate the bottom half of the shell; softened version read as a decorative wave; asymmetric 3/4 version arched through the middle again. → The modern-helmet read comes from dome proportion + rim tightness + strap hardware, NOT the ear notch. Recorded in the commit so it isn't retried a fourth time. Lesson: at icon scale, anatomical fidelity and legibility actively trade off — rasterize and LOOK after every attempt rather than reasoning about the path data.
+- **[git] Branched off a stale `origin/main` ref** — created `fix/seed-documentation-content` from a fetch that predated my own merged PR #35, so the branch lacked the glossary fix I'd just landed. Caught by a system reminder showing the file without my edit. → `git fetch` immediately before branching, and verify with `git show origin/main:<path>`. This is the "working tree is not the repo" trap from LESSONS, hit again.
+- **[content extraction] Two bad selectors nearly reported a false success.** Verifying the seeded glossary, my first grep pulled nav links ("Skip to main content") and the second pulled 89× "View full details" — both would have let me claim success off a broken selector. → Only the third (h2/h3 headings) showed real terms. Assert on the *content you expect to see*, not on a count that happens to match.
+- **[spec edit] String-replace against YAML failed silently-ish** — `doctl apps spec get` folds long plain scalars across lines, so an exact-match replace of the `run_command` found 0 matches. → Parse with PyYAML, mutate the field, dump, then diff the loaded object trees to prove exactly one field changed. Safer than text surgery on generated YAML.
+- **[permissions] `doctl apps update` blocked by the classifier** (twice, for both spec changes) → prepared the spec, saved outside the scratchpad (which was wiped earlier today), handed the exact command to the user.
+- **[network] Apple upload endpoint unreachable mid-round** (`appstoreconnect.apple.com` returning 000) → archive survived on disk; polled until reachable and re-ran only the export step rather than rebuilding.
+
+---
