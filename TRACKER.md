@@ -3,7 +3,7 @@
 Living status board for the Beau Access Solutions accessibility-app platform. Update as
 things move — this is the single place to see where everything stands.
 
-**Last updated:** 2026-07-19 (marketing site: asset caching fixed — hashed assets were revalidating on every repeat visit; `/style-eval` across all 13 pages cut em-dash density 10.7 → 3.5 per 1k and gated it on the **built HTML**, after a source-parsing version under-reported the figure twice)
+**Last updated:** 2026-07-19 (⚠️ **all 11 repos transferred to the `BeauAccessSolutions` GitHub org** — these docs are stale in 38 places and **Netlify CD needs re-checking**, since a GitHub App install does not follow a repo into an org and fails silently; BN `.env.docker` found in public history, assessed as dev-local with one `SECRET_KEY` check open)
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started · ⏳ blocked / waiting on input
 
 ---
@@ -42,6 +42,39 @@ unrelated personal projects, so it stays out of this public hub.
 **resolved.** `repos/disability-wiki` has been a symlink to `~/projects/disability-wiki`
 since 2026-07-16, and `platform-status.sh` now probes it like every other app (verified
 2026-07-19: reports branch, ahead/behind, worktree state, and all 4 open PRs).
+
+⚠️ **ALL 11 REPOS MOVED TO A GITHUB ORG (2026-07-19).** Everything is now under
+**`BeauAccessSolutions/`**, not `Beaudoin0zach/` — verified repo-by-repo with `gh repo view`:
+CIT, page-repair, disability-wiki, bas-website, bas-apps, access-atlas, a11y-probe,
+benefits_navigator, kindredaccess, kindredaccess-ios, bas-platform. History is intact and GitHub
+redirects the old paths, so git keeps working. Consequences:
+- **These docs are stale in 38 places** (TRACKER 34, README 3, PLATFORM 1). Not yet rewritten — it's
+  a mechanical pass but was deferred while a peer session was committing here.
+- **9 of 10 local checkouts already point at the new org**; `page-repair` and `bas-apps` still have
+  the old remote (cosmetic — redirects work).
+- ⬜ **Check Netlify before the next content change.** Its GitHub App authorization is *per-account*
+  and does **not** follow a repo into an org. Git pushes keep succeeding via redirect, so a broken
+  link fails **silently**: the push works, the site just stops updating. This is the same failure
+  shape as the 2026-07-16 wrong-repo incident below.
+- **5 repos are now public:** page-repair, disability-wiki, access-atlas, bas-platform, and
+  **benefits_navigator**.
+
+🟡 **BN `.env.docker` is in public history — assessed, mostly benign, one item open (2026-07-19).**
+`.env.docker` was committed in BN's initial commit (`9bff52e`) and removed in `c582113` ("Fix all P0
+critical issues — secrets…"), but history retains it, and BN is now public. **Verified reachable
+anonymously** (logged-out browser context, raw blob → HTTP 200, 22 keys). ✅ **Contents are a
+local docker-compose dev file, not production credentials:** `DATABASE_URL` is
+`postgresql://db:5432` (a compose *service name*), Redis/Celery are `redis://redis:6379` with no
+password, Stripe keys are `sk_test_`/`whsec_yo…` placeholders ~21 chars (a real Stripe key is ~107),
+`ALLOWED_HOSTS=localhost`, `DEBUG=True`. ⬜ **One thing still worth checking:** `SECRET_KEY` (24
+chars). It differs from the current local `.env`, and everything around it is dev-local, so it is
+very likely the dev key — but prod's is a DO `SECRET` that can't be read, and §6 still lists prod
+`SECRET_KEY` rotation as an open decision. Compare the first/last few chars in the DO console against
+`git show 9bff52e:.env.docker`; **same → rotate**, different → pure housekeeping. History rewriting
+(`git filter-repo`) is only worth the disruption if that check comes back bad — it cannot retract
+what is already cloned or indexed. ✅ **The other four public repos never committed a secret file.**
+⚠️ *Method note: the first pass called these "looks real" off a value-length heuristic and overstated
+the risk; what settled it was reading where the values pointed, not how long they were.*
 
 A second, subtler hazard: **`platform-status.sh` reports `open PRs: 0` when `gh` is signed
 in as the wrong account** — it does not distinguish "no PRs" from "cannot see this repo."
