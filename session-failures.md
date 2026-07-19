@@ -326,3 +326,30 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - The concurrency pre-commit gate on the hub fired correctly on a 3-region `TRACKER.md` stage and made me verify each region was mine before `STAGE_OK=3`. Working as designed.
 
 ---
+
+---
+## Session: 2026-07-18 (evening — §4 C3 gate, gate audit, CIT native announcements)
+
+**Project:** bas-platform / page-repair / bas-apps
+
+### Failures
+- **[audit] Reported CIT as "not checked out locally" after searching one directory tree.** I globbed `~/projects/` for a Prisma schema, found nothing, and recorded that as *the repo does not exist here* — then committed it to the public hub in `docs/design-principles.md` §4.1. It is checked out at `~/Chronic-Illness-Tracker`, and the hub's own `repos/` registry symlinks it. A peer session caught it (`572f0c0`); the same wrong claim survived in design-principles.md until this wrap-up. → **A null result is a claim about your search, not about the world.** For BAS specifically: enumerate `bas-platform/repos/` — the canonical app registry — before concluding any app is absent. (A machine-wide `null-result-guard` skill now exists for this class.)
+- **[review] Accepted the task brief's premise instead of checking it.** The brief said C3 had "no test anywhere"; KindredAccess had shipped `test_visible_status_nodes_are_at_silent` in the same commit that fixed the original bug, running in CI. I built on that premise and committed "KindredAccess remains unenforced" — false — to a public repo. Caught only when a later question made me test *"would this gate have caught the bug it was written for?"* → Verify the gap before building the thing that fills it. The brief even warned that citations here have been wrong; I verified the paths I cited but not the load-bearing absence claim.
+- **[review] Nearly propagated a peer's correction without checking it.** `572f0c0` said CIT's `a11y-css.test.ts` "doesn't cover both themes." It does — it splits `:root` and the dark block and asserts 3:1 and 4.5:1 in each. Verifying before writing turned a wrong "partial" into the portfolio's strongest C4 gate. → Peer corrections need the same verification as one's own claims, in both directions: their fix under-credited what was there.
+- **[git] Rebase resolution would have produced misleading history.** Folding all three of my commits' LESSONS.md changes into commit 1 left it titled "C3 now has a gate — page-repair only" while containing text saying KindredAccess *was* gated. Aborted and rebuilt as one honest commit on `origin/main`. → When a rebase forces you to fold corrections into the commit they correct, squash and rewrite the message rather than preserving a count.
+- **[docs] Blew a budget a peer had just deliberately set.** My first LESSONS.md resolution came to 100 lines against the ~85 ceiling `b8365b6` established minutes earlier; redone tersely to 95, still over, and flagged rather than hidden. → When rebasing onto a compression pass, adopt its budget as a constraint on the resolution, not an afterthought.
+- **[test] The new static gate failed on its own documentation.** `check-status-announcements.mjs` flagged the comments in `live-region.tsx` that *describe* the anti-pattern. → Skip comment lines and exempt the announcer's own source; a gate that flags its own docs trains people to ignore it.
+- **[env] Two rounds of monorepo module resolution before typecheck ran.** Symlinking the worktree's `node_modules` at the root wasn't enough — `apps/cit/node_modules` shadows it and resolved `@bas/ui` to the *main* checkout, so `tsc` reported the new export missing while the file plainly had it. → In a pnpm workspace, rewire the `@scope` dir at **every** level that has one, not just the root.
+- **[env] `node --test <dir>` is not the same as `node --test <glob>`.** Passing the directory made Node treat it as a single test file and fail with MODULE_NOT_FOUND, which reads exactly like a broken import. The tests were fine.
+- **[env] Worktree under `/tmp` was cleaned out mid-session.** `/private/tmp/claude-501/cit-fix` vanished between two turns; the commit survived only because worktrees share the main repo's object store. → Put worktrees under the repo's `.claude/worktrees/`, not `/tmp`.
+- **[gh] The active account kept reverting to `LangworthyWatch`.** PR creation failed twice — "Could not resolve to a Repository" on the private `bas-apps`, then "must be a collaborator" on `bas-platform` (`push=false`). `gh auth switch` worked but did not hold between calls, most likely because a concurrent session was switching it too. → Check `gh api user --jq .login` immediately before a PR, not `gh auth status`; and note that this global state is contested when sessions run in parallel.
+- **[ci] Nearly shipped a workflow pinned to Node 22** for a `.ts` test that needs native type stripping. Caught before push; set to 24.
+- **Minor:** an unquoted `--include=*.js` glob aborted under zsh (recurring — same as the previous session's entry); `timeout` is not present on macOS.
+
+### Went right
+- Both new gates were verified against the bug they exist to catch, not just against green: a `role="status"` toast injected into shipped `apply.js`, the original markup restored in `log-note.tsx`, and `IOS_SETTLE_MS=0`. All three failed as intended, which is the only reason the gates can be trusted.
+- Checked RN semantics against the official docs before changing 14 call sites, rather than relying on recall — the docs confirmed the bug was worse than assumed (silent on *both* platforms, not just iOS).
+- Adopted the peer's LESSONS.md structure on rebase instead of forcing my own through, after reading the commit message that explained their intent.
+- Left six worktrees untouched: all clean with zero unmerged commits, but two sat at 09:11–09:12 — exactly the recreation window the wrap-up skill documents — with a peer session committing 14 minutes prior.
+
+---
