@@ -308,3 +308,21 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - **[network] Apple upload endpoint unreachable mid-round** (`appstoreconnect.apple.com` returning 000) → archive survived on disk; polled until reachable and re-ran only the export step rather than rebuilding.
 
 ---
+
+---
+## Session: 2026-07-18 (night — marketing site: app links, voice, a11y gate)
+
+**Project:** bas-platform / beau-access-solutions (bas-website)
+
+### Failures
+- **[review] My first contrast pass reported "3 blocking" and was incomplete.** I tested every token against white, cream, and the warm neutrals — but not against the *tinted* section backgrounds (`bg-sage-light/30`, `bg-terracotta-light/20`). A real 3.93:1 failure on the blog CTA was live the whole time and I called the sweep done. → Alpha-composite every translucent background before comparing, and enumerate pairs from actual markup rather than from the palette. Now enforced by `test/contrast.mjs`; recorded in LESSONS C4.
+- **[review] Reported a 29-failure contrast matrix that was mostly noise.** Cross-producting every foreground against every background generated combinations that never occur (e.g. a dark-section text colour tested on white). Would have sent me fixing phantom problems. → Filtered to pairs that actually appear in markup: 29 → 3 real. Inflating a finding count is its own failure; a review that cries wolf gets ignored.
+- **[deploy verify] Polled the live site for 3 minutes and wrongly reported the deploy as not landed.** `curl` without `-L` against `/apps` returned the 301 redirect stub, so my `grep` for new content found nothing ten times running. The deploy had almost certainly succeeded on attempt 1. → Always `-L` when asserting on page *content*; and when a probe returns 3xx, treat that as "my probe is wrong" before "the deploy is broken."
+- **[test] Wrote a fail-closed test that crashed instead of diagnosing.** The undefined-token check ran *after* the contrast pair table was constructed, so a missing token threw `unknown colour:` from `c()` with a stack trace — technically fail-closed (exit 1), but it reported a symptom rather than the cause. Found only because I injected the regression instead of assuming the test worked. → Reordered so the token scan runs and exits first. Lesson: verify a new gate against the failure it exists to catch, not just against green.
+- **[env] Two shell failures from my own commands** — `grep --include` with an unquoted glob under zsh (`no matches found`), and `grep -c ... | paste -sd+ | bc` for counting matches (paste rejected the args, printing usage into what I was reading as counts). → Quote globs; use `grep -o | wc -l` rather than a pipeline that can fail mid-way and still print something that looks like output.
+- **Minor:** first background `grep` for antithesis constructions was killed rather than returning; re-ran in the foreground. `npx serve` looked dead at 4s but had actually started — a hand-rolled static server then hit `EADDRINUSE`, which was the evidence it was up.
+
+### Went right
+- The concurrency pre-commit gate on the hub fired correctly on a 3-region `TRACKER.md` stage and made me verify each region was mine before `STAGE_OK=3`. Working as designed.
+
+---

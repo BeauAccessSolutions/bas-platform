@@ -65,6 +65,20 @@ Gates audited 2026-07-18 by reading the tests; **partials marked**. CIT included
   4.5:1 in **both** themes — it asserts the dark override exists but not the `color-scheme`
   declaration, which is the only piece missing. *Unenforced:* `packages/ui`, Keycloak theme, BN (declares `color-scheme`, asserts nothing).
   (page-repair, 2026-07-13)
+  **Two failure modes a token-hex sweep still misses — both found on bas-website, 2026-07-18:**
+  (a) **A token that is *used but never defined* emits no CSS and fails silently.** `bg-forest-50`,
+  `text-forest-800/900`, `border-forest-200` were never in `@theme`; Tailwind generated nothing, the
+  chips inherited a colour, and dark-on-light still *looked* plausible. Recomputing pairs from the
+  token hexes cannot catch this — the token isn't in the hex table to check. Needs a separate scan:
+  every `text-|bg-|border-<family>-<step>` in source must resolve to a `--color-<family>-<step>`.
+  (b) **Test against *blended* backgrounds, not just the base palette.** Body text on
+  `bg-sage-light/30` computed 3.93:1; the same token on white passes comfortably. Any `/opacity`
+  utility or translucent card is a distinct background that must be alpha-composited before
+  comparing. A white-and-cream-only sweep reported "clean" while this was live.
+  *Enforced:* bas-website `test/contrast.mjs` (18 pairs + the undefined-token scan, alpha blended),
+  wired into `npm run build` — which is *Netlify's* build command, so a regression cannot publish.
+  Verified fail-closed by injecting both regression types rather than assuming.
+  (bas-website, 2026-07-18)
 
 ## Identity, OIDC & mobile wrappers
 
