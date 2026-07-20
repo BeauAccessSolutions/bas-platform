@@ -545,3 +545,17 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - Staged a lesson into `~/.claude/shared/LESSONS.md` as a **single isolated hunk** while a peer had two unrelated entries in flight in the same file — extracted my hunk by content and `git apply --cached`, leaving theirs untouched.
 
 ---
+
+## Session: 2026-07-20 (portfolio style-eval across 8 apps)
+
+**Project:** bas-platform (hub)
+
+### Failures
+- No failures. Clean run: 8 parallel evaluator agents + 8 remediation chips, no tool errors, no retries, no course corrections. The one mid-run misstep was self-caught and self-corrected without user intervention — twice floated an "em-dash density tracks inversely with corpus size" hypothesis on partial data, then explicitly retracted it once all 8 data points were in (CIT, the smallest corpus, sat mid-range). Worth noting as a *good* pattern: hypotheses were flagged as provisional ("not a law") before the data could confirm them, so the retraction cost nothing.
+
+### Went right
+- Held the scope question before running anything — split "prose surfaces" from "UI microcopy" and got the user's call, which kept every A-axis score meaningful (no scoring "framework→personal hook" on 40-char error strings).
+- Two evaluators were told up front not to "fix" a low voice score (Disability Wiki's house voice is correct for a crisis wiki; BN's guidance corpus is right for veterans). Carried that instruction into the remediation chips, so no agent will rewrite 441k words of crisis docs into personal essay.
+- Every planning chip scoped to "produce the plan, don't edit"; the marketing-site chip flagged as production-facing and gated the disability-disclosure rewrite on a human decision.
+
+---

@@ -3,7 +3,7 @@
 Living status board for the Beau Access Solutions accessibility-app platform. Update as
 things move — this is the single place to see where everything stands.
 
-**Last updated:** 2026-07-19 (🔴 **marketing-site apex is serving a STALE Netlify build** — the org transfer broke Netlify's GitHub App so it stopped building 4 commits ago; a peer's Cloudflare Pages deploy is fully current at `beau-access-solutions.pages.dev` but the apex DNS was never cut over. Founder note shipped, live on Pages, not on the apex)
+**Last updated:** 2026-07-20 (portfolio **writing style-eval** run across all 8 apps — report at `docs/style-eval-2026-07-19.md`; quality (3.4–4.6) beats voice (1.9–3.9) in every scored app, 12 correctness defects logged incl. an incoherent KindredAccess minors-clause and a page-repair Web-Store ship-blocker, remediation chips spun per app. Prior state unchanged below.) · 2026-07-19 (🔴 **marketing-site apex is serving a STALE Netlify build** — the org transfer broke Netlify's GitHub App so it stopped building 4 commits ago; a peer's Cloudflare Pages deploy is fully current at `beau-access-solutions.pages.dev` but the apex DNS was never cut over. Founder note shipped, live on Pages, not on the apex)
 **Legend:** ✅ done · 🟡 in progress · ⬜ not started · ⏳ blocked / waiting on input
 
 ---
