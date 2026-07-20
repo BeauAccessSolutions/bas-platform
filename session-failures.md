@@ -2,6 +2,11 @@
 
 Append-only record of things that went wrong, so patterns become visible across sessions.
 
+> **Bash safety-classifier outages** (`"<model> is temporarily unavailable … cannot determine
+> the safety"`) now also get a structured row in [`docs/classifier-outage-log.md`](docs/classifier-outage-log.md).
+> Log the *outage* there (classifier infra down), not classifier *denials* (it working). A prose
+> note here is still fine; the structured log is what makes the cross-session pattern greppable.
+
 ---
 
 ## Session: 2026-07-19 (disability-wiki style-eval remediation)
