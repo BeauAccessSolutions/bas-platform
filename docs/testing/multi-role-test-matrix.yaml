@@ -1,0 +1,1449 @@
+version: 1
+updated: 2026-07-23
+source: >
+  Derived from the "Logic Traps, State Failures & Access-Control Errors in Multi-Role
+  Applications" research template (2026-07). Deliverable 3 of that report was prose;
+  this file is the executable form. Machine-readable source of truth — the markdown
+  doc and any generated issues are rendered from here, not maintained in parallel.
+
+# ---------------------------------------------------------------------------
+# Gates: how a failure is treated. A test's `gate` is the contract, not advice.
+# ---------------------------------------------------------------------------
+gates:
+  blocker: >
+    Ship-blocking. A failure here is a data-loss, data-leak, or regulatory defect.
+    Must pass before a build reaches production. No "known issue" waiver without a
+    written, dated risk acceptance.
+  required: >
+    Must pass before a release is called done. May ship behind a flag with a tracked
+    issue and a named owner.
+  recommended: >
+    Quality bar. Track failures; do not block on them.
+
+# ---------------------------------------------------------------------------
+# Product parameters (Deliverable 2 of the report; the five bracketed decisions).
+# Values below are PROPOSED DEFAULTS with rationale. Tests reference them by key,
+# so changing a value here changes what the suite asserts — do not hardcode numbers
+# into test code. `status: proposed` means it needs sign-off; `adopted` means it is
+# the binding value.
+# ---------------------------------------------------------------------------
+params:
+  P1_session_timeouts:
+    status: proposed
+    # P1 IS NOT ONE NUMBER. Auditing four apps against a single proposed value
+    # (2026-07-23) proved it can't be — each app has a different, defensible
+    # assurance level, so a portfolio-wide timeout is either hostile to a
+    # consumer app or too loose for caseload PHI. What generalizes is the
+    # METHOD, not the value: pick the app's AAL from what it actually holds,
+    # read the timeout off the AAL, and treat drafts-survive-expiry (SESS-01)
+    # as the precondition that lets you tighten at all. The per_app block below
+    # is the parameter; the values here are the AAL2-caseload default a test
+    # falls back to when an app isn't listed.
+    values:
+      idle_default: 15m
+      idle_warning_at: 13m          # 2 min of warning; SC 2.2.1 floor is 20s
+      idle_shared_device: 5m
+      absolute_reauth: 12h
+      absolute_reauth_low_sensitivity: 24h
+      extension_grants_per_session: 10
+    per_app:
+      benefits_navigator:
+        aal: AAL2
+        idle: 15m
+        absolute_reauth: 12h
+        why: >
+          Caseload tool; VSO staff read third-party veteran PHI. AAL2 data, but
+          AAL3-shaped timeouts are cheap once SESS-01 holds. This is the default.
+      kindredaccess:
+        aal: AAL2-contested
+        idle: none            # current: 2-week absolute, no idle (F3 finding)
+        absolute_reauth: review
+        why: >
+          Consumer social app carrying disability status, private messages, and
+          safety reports. The data argues AAL2; a 15-minute idle timeout would be
+          hostile, and for users with cognitive or motor disabilities frequent
+          re-auth is itself an accessibility harm. Resolve the AAL question first,
+          and fix F1 (send survives) before ANY tightening or the timeout becomes
+          a data-loss policy.
+      chronic_illness_tracker:
+        aal: AAL2-single-user
+        idle: none            # current: 24h absolute, no idle (C3 finding)
+        absolute_reauth: 24h
+        why: >
+          Personal PHI, single user, NO third-party data — the one reader of a
+          user's data is that user. 24h sits exactly at the AAL2 overall ceiling
+          and is defensible. Idle timeout is the gap; add it only after C1
+          (draft persistence) ships, which it now has.
+      access_atlas:
+        aal: AAL1
+        idle: none            # current: 30-day absolute (A1 finding)
+        absolute_reauth: 30d
+        why: >
+          Public directory; a contributor account exists to attach confirmations
+          to listings. 30 days sits exactly at the AAL1 ceiling, where no idle
+          timeout is required. The complication is the access-identity tag
+          (self-identifying as disabled) — sensitive data even amid public
+          content — which MAY pull the contributor session to AAL2. Counsel/AAL
+          judgment call, same one as KindredAccess F3.
+    rationale: >
+      NIST SP 800-63B-4 sets the ceilings per assurance level: AAL2 — "A definite
+      reauthentication overall timeout SHALL be established, which SHOULD be no more
+      than 24 hours; the inactivity timeout SHOULD be no more than 1 hour." AAL3
+      tightens to a SHALL of 12 hours overall and a SHOULD of 15 minutes inactivity.
+      AAL1 — overall SHOULD be no more than 30 days, no inactivity requirement.
+      The single-number version of this parameter was wrong: see per_app. The
+      portfolio rule is the derivation — assurance level from the data the app holds,
+      timeout from the assurance level, tightening gated on drafts surviving expiry
+      (SESS-01). The AAL2-caseload default (15m/12h) remains the fallback for any app
+      not in per_app, and is itself a deliberate tightening below the AAL2 ceiling to
+      the AAL3 shape, cheap because SESS-01 removes the data-loss cost. Shared/kiosk
+      drops to 5m because the threat is a walk-up, not an idle laptop. Extension count
+      (10) and warning lead time satisfy WCAG 2.2.1's floors with margin.
+    refs:
+      - NIST SP 800-63B-4, AAL1/AAL2/AAL3 reauthentication (verified 2026-07-23)
+      - WCAG 2.2 SC 2.2.1 Timing Adjustable (A)
+      - WCAG 2.2 SC 2.2.6 Timeouts (AAA)
+      - Per-app derivation from the 2026-07-23 four-app audit sweep
+
+  P2_small_cell_threshold:
+    status: proposed
+    values:
+      threshold: 11                 # suppress any cell with a count of 1..10
+      complementary_suppression: required
+      applies_to: [exports, aggregate_dashboards, public_reports, partner_transmissions]
+      exempt: [single_record_views, own_caseload_operational_lists]
+    rationale: >
+      HHS OCR declines to set a universal number; the CMS Cell Size Suppression Policy
+      is the most defensible published anchor ("no cell containing a value of 1 to 10
+      can be reported directly... no cell can be reported that allows a value of 1 to 10
+      to be derived"). Adopting <11 means never having to defend a home-grown number to
+      an auditor. Complementary suppression is non-optional: suppressing only the small
+      cells while publishing row/column totals lets the suppressed value be recovered by
+      subtraction, which is the most common real implementation of this bug. Operational
+      views of a worker's own caseload are exempt because they are not de-identified
+      release — they are minimum-necessary access to identified records.
+    refs:
+      - 45 CFR 164.514(b) (de-identification)
+      - CMS Cell Size Suppression Policy (via ResDAC)
+
+  P3_delegation_defaults:
+    status: proposed
+    values:
+      default_scope: limited_view_plus_named_actions
+      default_duration: 90d
+      renewal: explicit_reconsent
+      re_delegation: disallowed
+      history_visibility: from_grant_date_forward
+      history_visibility_exception: legal_guardian_of_minor_may_opt_into_full_history
+      full_account_proxy: opt_in_only_logged
+    rationale: >
+      Default-deny applied to relationships. A 90-day window forces the grant to be
+      re-affirmed roughly quarterly, which is short enough that an abandoned delegation
+      dies on its own and long enough not to be user-hostile. Blocking re-delegation by
+      default avoids the hardest problem in the space (revocation propagation down a
+      chain) rather than solving it. "From grant date forward" is the conservative
+      default for sensitive categories: a delegate appointed today should not
+      retroactively acquire a history the principal recorded in confidence — with an
+      explicit, logged opt-in for guardians who genuinely need it.
+    refs:
+      - 45 CFR 164.502(b), 164.514(d) (minimum necessary)
+      - ONC information blocking, privacy exception
+
+  P4_offline_retention:
+    status: proposed
+    values:
+      max_cached_age: 7d
+      max_age_without_successful_auth_refresh: 24h
+      wipe_on: [revocation_push, logout, 5_failed_auth_attempts, app_uninstall_reinstall, caseload_reassignment]
+      shared_device_offline_cache: disallowed
+      cache_encryption: hardware_backed_key_required
+    rationale: >
+      The revocation gap is the trap: a device that has not talked to the server cannot
+      know access was revoked. Two bounds close it. The hard bound (24h without a
+      successful auth refresh) means an offline device becomes useless a day after
+      revocation even if it is never brought online — this is the one that actually
+      limits exposure, and 24h aligns with the AAL2 overall reauthentication timeout, so
+      an expired session and an expired cache fall together rather than drifting apart.
+      The soft bound (7d) caps how stale any cached record can be for correctness
+      reasons. Shared devices get no offline cache at all: the whole justification for
+      caching is a single known worker in the field.
+    refs:
+      - OWASP MASVS-STORAGE / MASVS-AUTH
+      - OWASP MASWE-0030 (re-auth not triggered on contextual state change)
+      - NIST SP 800-63B-4 AAL2 overall reauthentication timeout
+
+  P5_age_of_majority:
+    status: proposed_pending_counsel
+    values:
+      default_age_of_majority: 18
+      configurable_per_jurisdiction: true
+      confidential_category_floor_age: 12
+      confidential_categories: [sud_treatment, reproductive_health, mental_health, hiv_sti]
+      proxy_auto_revoke: on_majority_birthday
+      advance_notice_to_both_parties: 30d
+      minor_transition_requires_explicit_reconsent: true
+    rationale: >
+      Age of majority must be a configuration value, never a constant, because the
+      binding age varies by state and by category within a state. The confidential-category
+      floor (12) is a placeholder reflecting that many states let minors consent to
+      SUD/mental-health/reproductive care well before 18 — the exact ages, and how
+      New York's minor-consent law interacts with the 2024 Part 2 rule and the ONC
+      information-blocking exceptions, is the open counsel question and MUST NOT be
+      resolved from research. Everything else here (auto-revoke on the birthday, 30-day
+      notice, re-consent rather than silent carry-over) is safe to build now because it
+      holds regardless of which ages counsel lands on.
+    open_question: >
+      COUNSEL REQUIRED — see docs/testing/multi-role-test-matrix.md, "Open to counsel".
+      Do not mark this parameter `adopted` on engineering judgment.
+    refs:
+      - 42 CFR Part 2 Final Rule (eff. 2024-04-16; enforcement 2026-02-16)
+      - ONC Cures Act information blocking, privacy and infeasibility exceptions
+      - New York minor-consent law (UNRESOLVED)
+
+# ---------------------------------------------------------------------------
+# Suites
+# ---------------------------------------------------------------------------
+suites:
+
+  - id: SESS
+    name: Session & authentication lifecycle
+    tests:
+      - id: SESS-01
+        title: Unsaved work survives idle timeout and is restored after re-auth
+        gate: blocker
+        kind: positive
+        surfaces: [web, mobile]
+        params: [P1_session_timeouts]
+        setup: Authenticated worker with an open long-form record (case note, application).
+        steps:
+          - Type 500+ characters into the note. Do not save.
+          - Idle past {P1.idle_default} without touching the app.
+          - Return, observe the timeout state, re-authenticate.
+        pass: >
+          The full 500 characters are present after re-auth, in the same record, with the
+          cursor context recoverable. A draft indicator showed "Saved" before expiry.
+        fail: >
+          Any character loss. A blank form after re-auth. A "restore draft?" prompt that
+          restores an older version than what was on screen. Landing on a dashboard
+          instead of the record.
+        automation: e2e
+        refs: [WCAG 2.2.6, WCAG 2.2.1]
+
+      - id: SESS-02
+        title: Expired session surfaces as re-auth, never as a failed save
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile]
+        setup: Authenticated worker editing a record; expire the session server-side.
+        steps:
+          - Invalidate the session server-side (admin terminate, or wait past absolute).
+          - Click Save.
+        pass: >
+          A re-auth prompt appears. After login the pending write completes exactly once
+          and the user is returned to the record. No duplicate record is created.
+        fail: >
+          A generic error toast, a 401/403 rendered as "Something went wrong", a silent
+          no-op, or a success message for a write the server rejected.
+        automation: e2e
+        refs: [OWASP ASVS V3]
+
+      - id: SESS-03
+        title: Timeout warning is visible, announced, extendable, and repeatable
+        gate: required
+        kind: positive
+        surfaces: [web, mobile]
+        params: [P1_session_timeouts]
+        setup: Screen reader active (VoiceOver/NVDA). Authenticated session.
+        steps:
+          - Idle until {P1.idle_warning_at}.
+          - Listen for the announcement; extend with a single action.
+          - Repeat the idle/extend cycle {P1.extension_grants_per_session} times.
+        pass: >
+          Warning fires with >=20s remaining, is announced via an assertive live region,
+          is dismissible/extendable by one simple action, and extension succeeds at least
+          ten times.
+        fail: >
+          Silent expiry. Warning announced politely (or not at all). Extension requires
+          re-entering credentials. Extension capped below ten.
+        automation: e2e+manual
+        refs: [WCAG 2.2.1, WCAG 4.1.3]
+
+      - id: SESS-04
+        title: Timeout is enforced server-side; client clock cannot extend it
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile, api]
+        params: [P1_session_timeouts]
+        setup: Valid session; ability to manipulate client clock or intercept requests.
+        steps:
+          - Advance/rewind the device clock past the idle window.
+          - Suppress or replay the client-side keepalive/heartbeat request.
+          - Issue an authenticated API call after the server-side window has elapsed.
+        pass: The server rejects the call. Session state is derived from server time only.
+        fail: The call succeeds because the client asserted freshness.
+        automation: integration
+        refs: [OWASP ASVS V3]
+
+      - id: SESS-05
+        title: Absolute reauthentication timeout fires despite continuous activity
+        gate: required
+        kind: negative
+        surfaces: [web, mobile]
+        params: [P1_session_timeouts]
+        setup: Session kept continuously active (scripted activity) past {P1.absolute_reauth}.
+        steps:
+          - Generate activity every minute for longer than the absolute window.
+        pass: Session terminates at the absolute bound and requires full re-auth.
+        fail: Activity indefinitely extends the session (idle-only enforcement).
+        automation: integration
+        refs: [NIST SP 800-63B-4 AAL2/AAL3 overall timeout]
+
+      - id: SESS-06
+        title: Revoked role or caseload takes effect on the next request, not next login
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile, api]
+        setup: Worker with an open session and a record open in a tab.
+        steps:
+          - Server-side, remove that record from the worker's caseload.
+          - Without logging out, refresh the record; then call the record's API directly.
+        pass: >
+          Both are denied with the uniform not-found/not-authorized response. Denial does
+          not wait for token expiry.
+        fail: >
+          Access persists until the token expires or the user re-logs in. Cached
+          permissions in the JWT are treated as authoritative.
+        automation: integration
+        refs: [OWASP MASWE-0030]
+
+      - id: SESS-07
+        title: Step-up re-auth preserves the target action and its parameters
+        gate: required
+        kind: positive
+        surfaces: [web, mobile]
+        setup: Worker initiating a step-up-gated action (bulk export, protected-category view).
+        steps:
+          - Begin the action with parameters filled in.
+          - Complete the step-up challenge.
+        pass: The user returns to the exact action with parameters intact, ready to confirm.
+        fail: Return to a dashboard, an empty form, or a re-do of the parameter entry.
+        automation: e2e
+
+      - id: SESS-08
+        title: Logout invalidates the token; Back and replay cannot resume the session
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile, api]
+        setup: Authenticated session; capture the session token/cookie.
+        steps:
+          - Log out.
+          - Press browser Back to a protected page; then replay the captured token via API.
+        pass: Both denied. Cached page shells render no record data.
+        fail: Protected content renders from cache, or the replayed token authenticates.
+        automation: integration
+        refs: [OWASP ASVS V3]
+
+      - id: SESS-09
+        title: Terminate-all-sessions and admin-terminate both work
+        gate: required
+        kind: positive
+        surfaces: [web, mobile]
+        setup: Same user signed in on two devices.
+        steps:
+          - Change the password on device A; confirm device B.
+          - Separately, have an admin terminate the user's sessions; confirm both devices.
+        pass: >
+          Device B is signed out on the next request in both cases. Concurrent-session
+          policy is documented in the repo, not merely implemented.
+        fail: Device B keeps working. No admin path to terminate a user's sessions.
+        automation: integration
+        refs: [OWASP ASVS v5 session documentation requirement]
+
+      - id: SESS-10
+        title: Biometric step-up is cryptographically bound, not a boolean
+        gate: blocker
+        kind: negative
+        surfaces: [mobile]
+        setup: Mobile build with biometric step-up enabled; instrumentation tooling (Frida/objection).
+        steps:
+          - Hook the biometric callback to force a success return without a real match.
+          - Separately, enrol a new fingerprint/face and retry the protected action.
+        pass: >
+          Forced-success returns no usable data — the protected value is released by a
+          Keystore/Keychain key gated on biometry, so bypassing the callback yields
+          nothing. New enrolment invalidates the bound key and forces full re-auth.
+        fail: >
+          A hooked boolean unlocks the flow. Biometric enrolment changes leave the old
+          key usable.
+        automation: manual
+        refs: [OWASP MASVS-AUTH-2/3, MASTG-BEST-0031, MASTG-BEST-0036]
+
+      - id: SESS-11
+        title: Shared-device profile shortens timeout and clears local state on logout
+        gate: required
+        kind: positive
+        surfaces: [web, mobile]
+        params: [P1_session_timeouts, P4_offline_retention]
+        setup: Device marked as shared/kiosk.
+        steps:
+          - Confirm the idle timeout is {P1.idle_shared_device}.
+          - Confirm no "remember me" option is offered.
+          - Create a draft, log out, log in as a different worker.
+        pass: Shorter timeout applied; no remember-me; the previous worker's draft is gone.
+        fail: Standard timeout used, remember-me offered, or drafts persist across users.
+        automation: e2e
+
+  - id: AUTHZ
+    name: Access control (negative-test gates)
+    tests:
+      - id: AUTHZ-01
+        title: BOLA — forged object ID in path, body, or GraphQL variable
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: Two workers with disjoint caseloads. Record R belongs to worker B.
+        steps:
+          - As worker A, request R by ID in the URL path.
+          - Repeat with the ID in a JSON body field.
+          - Repeat as a GraphQL variable and as a nested/related-object ID.
+        pass: >
+          Every variant returns the uniform not-found/not-authorized response. The check
+          is a relationship lookup against the specific object, not a role check.
+        fail: Any variant returns R, or returns a distinguishable 403 vs 404.
+        automation: integration
+        refs: ["OWASP API Security Top 10 #1 (2023)"]
+
+      - id: AUTHZ-02
+        title: BOLA via list filters and mass assignment
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: Worker A with a scoped caseload.
+        steps:
+          - Add a caseload_id / worker_id / org_id filter param naming another scope.
+          - POST an update including an ownership field (assigned_to, caseload_id).
+        pass: >
+          Filter params are ignored or rejected in favour of the server-derived scope.
+          Ownership fields are not client-assignable.
+        fail: The response widens to another scope, or the ownership reassignment succeeds.
+        automation: integration
+        refs: ["OWASP API #1", "OWASP API #3"]
+
+      - id: AUTHZ-03
+        title: BFLA — privileged endpoint called with a low-privilege token
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: Non-admin token; list of admin-only endpoints and methods.
+        steps:
+          - Call each admin endpoint with the non-admin token.
+          - Try method substitution (GET-only endpoint via POST/PUT/DELETE).
+        pass: All rejected server-side.
+        fail: Any endpoint executes; or rejection happens only because the UI hides it.
+        automation: integration
+        refs: ["OWASP API Security Top 10 #5"]
+
+      - id: AUTHZ-04
+        title: UI-hidden controls are not the access control
+        gate: blocker
+        kind: negative
+        surfaces: [web]
+        setup: A screen where a control is conditionally hidden by role.
+        steps:
+          - Unhide the control in devtools and activate it.
+          - Replay the resulting request with the low-privilege session.
+        pass: Server rejects.
+        fail: The action succeeds because only the render was gated.
+        automation: integration
+
+      - id: AUTHZ-05
+        title: Case-manager mode excludes non-caseload records from every read path
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile, api]
+        setup: Dual-hat user (admin + caseload) currently in case-manager mode.
+        steps:
+          - Search by name for a non-caseload client.
+          - Type into every autocomplete/typeahead on the app.
+          - Run an export and a report.
+          - Check notification/digest content.
+        pass: >
+          No non-caseload record appears in any of: search results, autocomplete,
+          exports, reports, counts, or notifications. Not even as a count or a redacted stub.
+        fail: >
+          Any surface reveals existence — an autocomplete hit, a "1 more result" count,
+          a report row, a notification naming the client.
+        automation: e2e+integration
+        refs: [45 CFR 164.502(b), 164.514(d)]
+
+      - id: AUTHZ-06
+        title: Role switch is explicit, server-side, and audited
+        gate: required
+        kind: positive
+        surfaces: [web, mobile]
+        setup: Dual-hat user.
+        steps:
+          - Log in fresh and observe the default mode.
+          - Switch to admin; observe the banner; navigate several routes; reload the page.
+          - Open a second tab and a deep link.
+          - Check the audit log.
+        pass: >
+          Default is the least-privileged relevant role (case manager). The "Acting as"
+          banner is present on every route, survives reload, and is derived from
+          server-side mode state so a second tab and a deep link show the same mode.
+          Every switch is logged with actor, from-mode, to-mode, timestamp.
+        fail: >
+          Default is admin. Banner disappears on some routes or after reload. Mode lives
+          in client state so tabs disagree. Switches are unlogged.
+        automation: e2e
+        refs: [Sellen/Kurtenbach/Buxton on mode errors]
+
+      - id: AUTHZ-07
+        title: Impersonation is read-only, banner-marked, and logged as impersonation
+        gate: blocker
+        kind: negative
+        surfaces: [web]
+        setup: Support/admin account with impersonation capability.
+        steps:
+          - Start impersonation; confirm a justification is required.
+          - Attempt any write (edit a note, submit a form, send a message).
+          - Inspect the audit log entries created during the session.
+        pass: >
+          Justification captured. Writes blocked unless a separately authorized
+          write-impersonation grant exists. Banner visible throughout. Log records the
+          acting admin AND the target, attributed as impersonation — never as the target
+          acting alone.
+        fail: >
+          Writes succeed silently. Log shows the target as the actor. No banner, or a
+          banner only on the entry screen.
+        automation: e2e
+
+      - id: AUTHZ-08
+        title: Break-glass requires a reason, expires on its own, and lands in review
+        gate: blocker
+        kind: positive
+        surfaces: [web]
+        setup: Emergency-access capability configured.
+        steps:
+          - Invoke break-glass without a reason code.
+          - Invoke with a reason; note the granted window.
+          - Wait past the window and retry the elevated access.
+          - Check the retrospective-review queue.
+        pass: >
+          Reasonless invocation refused. Access is time-boxed and expires without an
+          explicit revoke. The event appears in a review queue with an SLA, not just in
+          a log file.
+        fail: >
+          Reason optional or free-text-unlogged. Elevation persists past the window or
+          until manual revoke. No review queue exists — the log is the only artifact.
+        automation: e2e
+        refs: [45 CFR 164.308(a)(1)(ii)(D)]
+
+      - id: AUTHZ-09
+        title: Caseload reassignment removes the prior worker's access immediately
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile, api]
+        setup: Record R assigned to worker A, who has it open in a tab and cached on a device.
+        steps:
+          - Reassign R to worker B.
+          - As A, refresh the open tab; call the API; open the mobile app.
+        pass: >
+          All three denied. Residual access exists only where an explicit, logged
+          coverage grant exists.
+        fail: A retains read access to R anywhere, including a stale open tab.
+        automation: integration
+
+      - id: AUTHZ-10
+        title: Coverage/backup grants are time-bounded and auto-expire
+        gate: required
+        kind: negative
+        surfaces: [web, api]
+        setup: Worker A granted coverage of worker B's caseload for a bounded window.
+        steps:
+          - Confirm access during the window; confirm it is audited as coverage.
+          - Advance past the window end; retry.
+        pass: Access ends at the boundary with no manual revoke. Every access is logged as coverage.
+        fail: Coverage is a permanent widening, or expiry requires someone to remember.
+        automation: integration
+
+      - id: AUTHZ-11
+        title: Derived artifacts (exports, attachments, signed URLs) carry the same scoping
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: An export/report/attachment generated for worker B.
+        steps:
+          - As worker A, request B's export by ID.
+          - Request an attachment/media URL belonging to B's record.
+          - Reuse a signed URL after the grant that produced it was revoked.
+        pass: >
+          All denied. Signed URLs are short-lived AND bound to the requesting principal,
+          so they die with the grant.
+        fail: Any artifact is retrievable by ID or by holding a still-valid URL.
+        automation: integration
+
+      - id: AUTHZ-12
+        title: Cross-scope denial is uniform in status, body, and timing
+        gate: required
+        kind: negative
+        surfaces: [api]
+        setup: Known-existing out-of-scope ID, and a known-nonexistent ID.
+        steps:
+          - Request both. Compare status code, response body, headers, and latency
+            distribution over 50 requests each.
+        pass: Indistinguishable on all four dimensions.
+        fail: >
+          403 vs 404 divergence, differing error text, or a measurable timing gap that
+          confirms existence.
+        automation: integration
+
+  - id: TEN
+    name: Data segregation & multi-tenancy
+    tests:
+      - id: TEN-01
+        title: Background jobs carry tenant/caseload scope
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: A queued export/report/digest job.
+        steps:
+          - Enqueue as a scoped worker; inspect the serialized job payload.
+          - Run the worker process and inspect the output.
+          - Enqueue two jobs for different tenants and run them on the same worker process.
+        pass: >
+          Scope is serialized into the job payload (not read from a request-local or
+          thread-local at execution time). Output contains only the requesting scope.
+          Sequential jobs on one process do not bleed.
+        fail: >
+          Job runs unscoped "because it's a system job", or the second job inherits the
+          first's scope from a lingering connection/session variable.
+        automation: integration
+        refs: [OWASP Multi-Tenant Security Cheat Sheet]
+
+      - id: TEN-02
+        title: Caches and CDN never serve one scope's data to another
+        gate: blocker
+        kind: negative
+        surfaces: [web, api]
+        setup: A cacheable authenticated endpoint.
+        steps:
+          - Request as tenant A (populate cache), then immediately as tenant B.
+          - Inspect Cache-Control/Vary on authenticated responses.
+          - Inspect application cache keys for tenant/caseload inclusion.
+        pass: >
+          B never receives A's payload. Authenticated responses are private/no-store at
+          the edge. Every application cache key includes the scope.
+        fail: A shared key, a public cache header on authenticated content, or a cross-serve.
+        automation: integration
+
+      - id: TEN-03
+        title: Search index is scoped at query time, not just at render time
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: Search backend populated across scopes.
+        steps:
+          - Query the search API directly for a term matching an out-of-scope record.
+          - Check whether filtering happens in the index query or post-hoc in the app.
+        pass: The index query itself is scope-filtered; zero out-of-scope hits and zero counts.
+        fail: >
+          The index returns everything and the app filters afterwards — the total-hits
+          count alone leaks, and any pagination bug leaks records.
+        automation: integration
+
+      - id: TEN-04
+        title: Notifications and digests respect scope
+        gate: required
+        kind: negative
+        surfaces: [web, mobile]
+        setup: Events generated on out-of-scope records.
+        steps:
+          - Trigger events that produce push/email/in-app notifications.
+          - Inspect notification bodies, preview text, and lock-screen rendering.
+        pass: No out-of-scope record is named or counted; lock-screen previews omit PHI.
+        fail: A notification names a client the recipient has no access to, or leaks PHI to a lock screen.
+        automation: e2e
+
+      - id: TEN-05
+        title: Errors, logs, and traces do not leak cross-scope identifiers
+        gate: required
+        kind: negative
+        surfaces: [web, api]
+        setup: Force a 500 on a cross-scope request.
+        steps:
+          - Inspect the client-visible error body, and the error-tracking payload.
+        pass: >
+          No record IDs, names, tenant identifiers, or SQL fragments reach the client.
+          PHI is scrubbed before leaving the process for any third-party error service.
+        fail: Stack traces, query text, or identifiers in the response or in a third-party tool.
+        automation: integration
+
+      - id: TEN-06
+        title: File storage paths are scoped and unguessable
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: An uploaded document/photo belonging to another scope.
+        steps:
+          - Enumerate/guess the storage path or object key.
+          - Request the object directly, bypassing the app.
+        pass: Direct object access denied; the bucket is not publicly listable; access proxied and authorized.
+        fail: Sequential/derivable keys, public bucket listing, or direct object retrieval.
+        automation: integration
+
+      - id: TEN-07
+        title: Aggregate views suppress small cells AND block back-calculation
+        gate: blocker
+        kind: negative
+        surfaces: [web, api]
+        params: [P2_small_cell_threshold]
+        setup: A dashboard/report with a rare category (n between 1 and 10).
+        steps:
+          - Render the aggregate; confirm cells below {P2.threshold} are suppressed.
+          - Attempt to derive a suppressed cell by subtracting shown cells from a total.
+          - Attempt derivation across two time periods or two filter combinations.
+        pass: >
+          Primary suppression applied AND complementary suppression prevents derivation
+          from totals, from adjacent slices, and from differencing two filtered views.
+        fail: >
+          Any suppressed value is recoverable by arithmetic. This is the default outcome
+          when only primary suppression is implemented — assume it fails until proven.
+        automation: integration
+        refs: [45 CFR 164.514, CMS Cell Size Suppression Policy]
+
+      - id: TEN-08
+        title: Connection pooling does not carry scope between requests
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: Postgres RLS (or equivalent) driven by a session variable, behind a pooler.
+        steps:
+          - Issue a request as tenant A, then a request as tenant B that lands on the same
+            pooled connection.
+          - Force an exception mid-transaction and reuse the connection.
+        pass: >
+          Scope is set per transaction (SET LOCAL) and reset on release; the exception
+          path does not leave a stale scope on the connection.
+        fail: B's query runs under A's scope, or an aborted transaction leaves scope set.
+        automation: integration
+
+  - id: REV
+    name: Reversibility, idempotency, destructive actions
+    tests:
+      - id: REV-01
+        title: Double-submit and retry create exactly one record
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile, api]
+        setup: A state-changing submission (application, case creation, notification send).
+        steps:
+          - Double-tap/double-click submit.
+          - Kill the network mid-request and let the client retry.
+          - Replay the identical request with the same idempotency key.
+        pass: >
+          Exactly one record exists in all three cases. The replay returns the original
+          response, not a new one, and not an error.
+        fail: Duplicates, or a replay that 409s in a way the client turns into a lost submission.
+        automation: integration
+        refs: [Stripe idempotency-key pattern]
+
+      - id: REV-02
+        title: Idempotency keys are per-logical-action and survive the retry window
+        gate: required
+        kind: negative
+        surfaces: [api]
+        setup: Client-generated v4 UUID key per action.
+        steps:
+          - Confirm the key is generated once per user intent, not per HTTP attempt.
+          - Confirm a key reused after the server's pruning window is documented behaviour.
+        pass: >
+          One key per intent, regenerated on a genuinely new submission. Post-pruning
+          behaviour is documented and not silently duplicate-creating within the window.
+        fail: >
+          Key regenerated on each retry (defeating the mechanism), or shared across
+          distinct actions (suppressing a legitimate second submission).
+        automation: unit+integration
+
+      - id: REV-03
+        title: Soft delete, restore, and child records behave per a written policy
+        gate: required
+        kind: positive
+        surfaces: [web, api]
+        setup: A record with child records (notes, documents, tasks).
+        steps:
+          - Soft-delete the parent; check child visibility and referential state.
+          - Modify related data, then restore the parent.
+          - Check the restored record's relationships and audit trail.
+        pass: >
+          Behaviour matches a written cascade/restrict/tombstone policy. No orphans, no
+          dangling references, restore is logged.
+        fail: >
+          Orphaned children, a restore that resurrects stale relationships silently, or
+          behaviour that nobody wrote down (so it cannot be wrong or right).
+        automation: integration
+
+      - id: REV-04
+        title: Irreversible actions say so and offer no fake undo
+        gate: required
+        kind: negative
+        surfaces: [web, mobile]
+        setup: Submit/send/finalize/transmit flows.
+        steps:
+          - Walk each irreversible flow; note the confirmation copy.
+          - Look for an Undo affordance after completion; if present, use it.
+        pass: >
+          Explicit "this cannot be undone" language, a review-confirm step, and no Undo
+          affordance on an action that cannot be undone.
+        fail: >
+          Generic "Are you sure?", or an Undo/snackbar that appears and silently no-ops
+          (worse than no Undo — it teaches false confidence).
+        automation: manual
+        refs: [WCAG 3.3.4]
+
+      - id: REV-05
+        title: Reversible actions use Undo plus a server-side recovery window
+        gate: recommended
+        kind: positive
+        surfaces: [web, mobile]
+        setup: Delete a case note / remove a client / archive a record.
+        steps:
+          - Perform the delete; dismiss the snackbar without acting.
+          - Find and use the Trash/restore path.
+        pass: >
+          A restorable Trash exists with a server-side recovery window well beyond the
+          snackbar. The snackbar is a convenience, not the only route back.
+        fail: A 5-second snackbar is the entire recovery mechanism.
+        automation: e2e
+
+      - id: REV-06
+        title: WCAG 3.3.4 gate on data-modifying submissions
+        gate: required
+        kind: positive
+        surfaces: [web]
+        setup: Every submission that modifies or deletes user-controllable data.
+        steps:
+          - For each, verify at least one of Reversible / Checked / Confirmed applies.
+        pass: Each qualifying submission satisfies at least one of the three.
+        fail: A submission that mass-deletes or overwrites with none of the three.
+        automation: manual
+        refs: [WCAG 3.3.4 (AA)]
+
+  - id: CONC
+    name: Concurrency, sync, and data integrity
+    tests:
+      - id: CONC-01
+        title: Concurrent edit is detected, not silently overwritten
+        gate: blocker
+        kind: negative
+        surfaces: [web, api]
+        setup: Two workers open the same record.
+        steps:
+          - A saves. Then B saves without refreshing.
+        pass: >
+          B's save is rejected with a version conflict and a UI that shows both versions
+          and lets B merge deliberately.
+        fail: >
+          B's save wins silently, destroying A's edit. Any "last write wins" on a
+          clinical/eligibility/case-note field is an automatic failure.
+        automation: integration
+
+      - id: CONC-02
+        title: Critical actions re-verify state before committing
+        gate: required
+        kind: negative
+        surfaces: [web, mobile]
+        setup: A screen open for a long time on data that changes underneath it.
+        steps:
+          - Change the underlying record server-side.
+          - Take a consequential action from the stale screen.
+        pass: The action is blocked or requires a re-fetch-and-confirm showing what changed.
+        fail: The action commits against stale assumptions.
+        automation: integration
+
+      - id: CONC-03
+        title: Offline edits on two devices conflict-detect and preserve both
+        gate: blocker
+        kind: negative
+        surfaces: [mobile]
+        setup: The same record edited offline on two devices.
+        steps:
+          - Edit the same clinical/eligibility field on both while offline.
+          - Bring device A online, then device B.
+        pass: >
+          The conflict is detected via version vectors, both values are preserved, and a
+          human resolves it. Every offline change carries device/user/version metadata.
+        fail: >
+          One value silently overwrites the other. This is the highest-consequence failure
+          in the suite — a caregiver's retrospective note overwriting a real reading.
+        automation: integration
+
+      - id: CONC-04
+        title: No last-write-wins on clinical or eligibility fields (code-level)
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: Static/unit-level assertion over the sync layer.
+        steps:
+          - Enumerate fields classified clinical/eligibility.
+          - Assert each is handled by a conflict-detecting strategy, not LWW.
+        pass: An explicit allowlist of LWW-eligible fields (preferences, UI state) and nothing else.
+        fail: LWW as the default strategy with sensitive fields inheriting it by omission.
+        automation: unit
+
+      - id: CONC-05
+        title: Partial failure in a multi-entity operation leaves no half-state
+        gate: required
+        kind: negative
+        surfaces: [api]
+        setup: An operation touching several entities or services.
+        steps:
+          - Inject a failure after the first write and before the last.
+          - Retry the whole operation.
+        pass: >
+          A transaction rolls back, or compensating actions unwind cleanly, and the retry
+          is idempotent.
+        fail: A durable half-committed state that no code path can resolve.
+        automation: integration
+
+      - id: CONC-06
+        title: The backend state machine is authoritative
+        gate: required
+        kind: negative
+        surfaces: [web, api]
+        setup: A workflow with statuses (intake -> review -> submitted -> closed).
+        steps:
+          - Enumerate transitions the UI offers; call each directly against the API from
+            every starting state.
+          - Look for states with no exit and states unreachable from any start.
+        pass: >
+          UI-offered transitions are a subset of backend-valid ones. No dead-end or
+          unreachable states. Invalid transitions rejected with a usable message.
+        fail: >
+          The UI offers a transition the backend rejects (or vice versa), or a record can
+          reach a state it cannot leave.
+        automation: integration
+
+  - id: MOB
+    name: Offline, mobile, and the revocation gap
+    tests:
+      - id: MOB-01
+        title: Revocation reaches an offline device within the retention bound
+        gate: blocker
+        kind: negative
+        surfaces: [mobile]
+        params: [P4_offline_retention]
+        setup: Device with cached records; then revoke the caseload assignment server-side.
+        steps:
+          - With the device offline, revoke access server-side.
+          - Open the app offline and attempt to read the cached record.
+          - Advance the clock past {P4.max_age_without_successful_auth_refresh}; retry offline.
+          - Bring the device online and confirm the wipe.
+        pass: >
+          The record is inaccessible no later than the max-age-without-refresh bound even
+          if the device never reconnects, and is actively wiped on the first successful
+          reconnect.
+        fail: >
+          Cached PHI remains readable indefinitely while offline. This is the trap that
+          does not exist on web and is the most-missed test in the suite.
+        automation: manual+integration
+        refs: [OWASP MASVS, MASWE-0030]
+
+      - id: MOB-02
+        title: On-device sensitive data is encrypted with a hardware-backed key
+        gate: blocker
+        kind: negative
+        surfaces: [mobile]
+        params: [P4_offline_retention]
+        setup: Device with cached records; filesystem access (jailbroken/rooted or backup extraction).
+        steps:
+          - Extract the app's data directory and any backup.
+          - Search for plaintext record content, tokens, or identifiers.
+        pass: >
+          Nothing readable. Keys live in Keychain/Keystore, are not exportable, and are
+          not backed up.
+        fail: Plaintext SQLite, unencrypted caches, tokens in shared preferences/UserDefaults, or secrets in a device backup.
+        automation: manual
+
+      - id: MOB-03
+        title: Local data is wiped on logout, repeated auth failure, and reassignment
+        gate: blocker
+        kind: positive
+        surfaces: [mobile]
+        params: [P4_offline_retention]
+        setup: Device with cached records and drafts.
+        steps:
+          - For each trigger in {P4.wipe_on}, fire it and then inspect on-device storage.
+        pass: Every listed trigger results in a verified wipe of records, drafts, and tokens.
+        fail: Any trigger that clears the UI but leaves data on disk.
+        automation: manual
+
+      - id: MOB-04
+        title: OS process kill mid-flow restores state and draft
+        gate: required
+        kind: positive
+        surfaces: [mobile]
+        setup: Mid-way through a multi-step flow with unsaved input.
+        steps:
+          - Background the app; force the OS to kill it (or simulate via developer tooling).
+          - Relaunch.
+        pass: The flow resumes at the same step with input intact.
+        fail: Relaunch lands on the home screen with the work gone.
+        automation: manual
+
+      - id: MOB-05
+        title: Android predictive back does not discard a form
+        gate: required
+        kind: negative
+        surfaces: [mobile]
+        setup: Android build with predictive back active, a dirty form on screen.
+        steps:
+          - Perform the predictive-back gesture and complete it.
+        pass: >
+          A confirmation appears because the back callback was registered ahead of the
+          gesture. Nothing is lost if the user commits the gesture by accident.
+        fail: >
+          The screen is discarded because the app tried to cancel the back after the
+          animation had already committed.
+        automation: manual
+        refs: [Android predictive back; Flutter breaking-change notes]
+
+      - id: MOB-06
+        title: iOS edge-swipe back does not discard a form or fight scrollable content
+        gate: recommended
+        kind: negative
+        surfaces: [mobile]
+        setup: iOS build with a dirty form containing a horizontally scrolling element.
+        steps:
+          - Edge-swipe back with unsaved changes.
+          - Swipe horizontally inside the scrolling element near the leading edge.
+        pass: Confirmation on discard; the scroll element does not steal or trigger the back gesture ambiguously.
+        fail: Silent discard, or an unusable horizontal scroller near the edge.
+        automation: manual
+
+      - id: MOB-07
+        title: Queued and synced are visually distinct states
+        gate: blocker
+        kind: negative
+        surfaces: [mobile]
+        setup: Offline capture of a record.
+        steps:
+          - Save while offline; observe the state indicator.
+          - Reconnect; observe the transition.
+          - Force a sync failure; observe the state.
+        pass: >
+          "Saved on device — will sync" is visibly distinct from "Synced", and a sync
+          failure is surfaced, not swallowed. The user can always tell which of their
+          work the server has.
+        fail: >
+          A green check or "Saved" shown for data the server has never seen. This is the
+          most dangerous feedback bug in the suite.
+        automation: e2e
+
+  - id: NAV
+    name: Navigation, back-stack, and unsaved state
+    tests:
+      - id: NAV-01
+        title: Unsaved-changes guard fires on in-app SPA navigation
+        gate: required
+        kind: negative
+        surfaces: [web]
+        setup: Dirty form in a client-side-routed app.
+        steps:
+          - Navigate via an in-app link, a router push, and browser Back.
+        pass: >
+          The guard fires on all three via the router's blocking hook — not only on true
+          unload.
+        fail: >
+          The guard relies on beforeunload alone, so in-app navigation silently discards
+          the edits. This fails by default in React/Vue/Angular; assume broken until tested.
+        automation: e2e
+
+      - id: NAV-02
+        title: True unload is also guarded
+        gate: recommended
+        kind: negative
+        surfaces: [web]
+        setup: Dirty form.
+        steps:
+          - Close the tab / reload / navigate to an external URL.
+        pass: The browser's generic unload prompt appears.
+        fail: Silent loss on unload.
+        automation: manual
+
+      - id: NAV-03
+        title: Back after submit does not re-post or resurrect deleted state
+        gate: required
+        kind: negative
+        surfaces: [web]
+        setup: A completed POST submission.
+        steps:
+          - Press Back; then Forward; then reload.
+          - Do the same after deleting a record.
+        pass: POST-redirect-GET plus server-side idempotency; no duplicate, no zombie record in the UI.
+        fail: A resubmission prompt, a duplicate record, or a deleted record reappearing as live.
+        automation: e2e
+
+      - id: NAV-04
+        title: Deep links re-check authorization and degrade gracefully
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile]
+        setup: A shared URL to a record outside the recipient's scope, and one mid-flow.
+        steps:
+          - Open the out-of-scope deep link while authenticated as another worker.
+          - Open a mid-flow deep link with no prior context.
+        pass: >
+          Uniform not-found/not-authorized with no existence leak; the mid-flow link
+          either establishes context or routes somewhere coherent.
+        fail: A distinguishable error, a partially rendered record, or a context-less broken screen.
+        automation: e2e
+
+      - id: NAV-05
+        title: Wizards persist partial state, validate per step, and never re-ask
+        gate: required
+        kind: positive
+        surfaces: [web, mobile]
+        setup: A multi-step intake/application flow.
+        steps:
+          - Complete two steps, abandon, return later (new session).
+          - Enter invalid data on step 2 and try to continue.
+          - Check whether any later step asks for information already given.
+        pass: >
+          Partial state persisted server-side and resumable; validation per step, not
+          only at the end; no redundant entry (SC 3.3.7).
+        fail: >
+          Progress lost on abandonment, all errors surfaced at the end, or the same
+          information requested twice.
+        automation: e2e
+        refs: [WCAG 3.3.7]
+
+      - id: NAV-06
+        title: The unsaved-changes guard is a net, not a cage
+        gate: required
+        kind: negative
+        surfaces: [web, mobile]
+        setup: A form the user cannot complete (missing required data they do not have).
+        steps:
+          - Attempt to leave repeatedly.
+        pass: >
+          The user can always leave; work is autosaved as a draft with a visible
+          "Saving…/Saved" status; the warning appears only on genuinely destructive exits.
+        fail: A modal that cannot be escaped without either completing or discarding.
+        automation: manual
+
+  - id: DELEG
+    name: Delegation, proxy, and guardianship
+    tests:
+      - id: DELEG-01
+        title: Delegate access is limited to the granted scope
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile, api]
+        params: [P3_delegation_defaults]
+        setup: A delegate granted limited view plus two named actions.
+        steps:
+          - Enumerate what the delegate can see and do via the UI and directly via the API.
+          - Attempt an action outside the named set.
+        pass: Only the granted scope is reachable; out-of-scope actions denied server-side.
+        fail: The grant behaves as full account access, or the API is wider than the UI.
+        automation: integration
+
+      - id: DELEG-02
+        title: Delegation expires on its own
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        params: [P3_delegation_defaults]
+        setup: A delegation with an expiry.
+        steps:
+          - Confirm access before expiry; advance past {P3.default_duration}; retry.
+          - Confirm renewal requires explicit re-consent, not a silent extension.
+        pass: Access ends at expiry with no manual action; renewal is a new consent event.
+        fail: Expiry needs a cron nobody runs, or renewal happens implicitly on use.
+        automation: integration
+
+      - id: DELEG-03
+        title: Re-delegation is blocked by default
+        gate: required
+        kind: negative
+        surfaces: [api]
+        params: [P3_delegation_defaults]
+        setup: An active delegate.
+        steps:
+          - As the delegate, attempt to grant access to a third party.
+        pass: Refused. If re-delegation is enabled anywhere, depth and time are bounded and revocation propagates down the chain.
+        fail: A delegate can silently extend access to someone the principal never named.
+        automation: integration
+
+      - id: DELEG-04
+        title: Revocation propagates everywhere, including device caches
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile, api]
+        setup: An active delegation with a mobile device holding cached data.
+        steps:
+          - Revoke; immediately retry on web, API, and the mobile device (online).
+          - Repeat with the device offline (see MOB-01).
+        pass: Denied on all surfaces; device cache wiped within the P4 bound.
+        fail: Any surface that keeps working after revocation.
+        automation: integration
+
+      - id: DELEG-05
+        title: Pre-grant history is hidden for sensitive categories
+        gate: required
+        kind: negative
+        surfaces: [web, api]
+        params: [P3_delegation_defaults, P5_age_of_majority]
+        setup: A principal with records predating the delegation, some in confidential categories.
+        steps:
+          - As the delegate, request records dated before the grant.
+          - Attempt via search, export, and direct ID.
+        pass: >
+          Pre-grant sensitive records are not returned by any path, unless an explicit,
+          logged full-history opt-in exists.
+        fail: The delegate sees history the principal recorded before the relationship existed.
+        automation: integration
+
+      - id: DELEG-06
+        title: Delegate actions are attributed as delegate actions
+        gate: required
+        kind: positive
+        surfaces: [web, api]
+        setup: A delegate performing a write.
+        steps:
+          - Perform the action; inspect the UI history and the audit log.
+        pass: Both read "Entered by [delegate] on behalf of [principal]". The principal is never shown as the sole actor.
+        fail: The action appears to have been taken by the principal.
+        automation: integration
+
+      - id: DELEG-07
+        title: Minor reaching majority auto-revokes the parent proxy at the boundary
+        gate: blocker
+        kind: negative
+        surfaces: [web, api]
+        params: [P5_age_of_majority]
+        setup: A minor account with a parent proxy, DOB set so majority is imminent.
+        steps:
+          - Confirm advance notice is sent {P5.advance_notice_to_both_parties} beforehand.
+          - Advance to the day before majority (access holds), the birthday, and the day after.
+          - Confirm any continued access requires the now-adult's explicit consent.
+          - Repeat for a confidential-category record at {P5.confidential_category_floor_age}.
+        pass: >
+          Proxy access ends on the boundary with no manual action; both parties were
+          notified; continuation requires fresh consent from the now-adult.
+        fail: >
+          Proxy persists past majority, ends silently with no notice, or carries over
+          into an "account" the adult never consented to.
+        automation: integration
+        note: >
+          The ages in this test come from P5, which is NOT settled — see "Open to counsel".
+          The mechanism is testable now; the constants may change.
+
+  - id: ERR
+    name: Error handling, feedback, recovery
+    tests:
+      - id: ERR-01
+        title: Success is claimed only on server acknowledgment
+        gate: blocker
+        kind: negative
+        surfaces: [web, mobile]
+        setup: A save flow with the ability to fail the server mid-write.
+        steps:
+          - Return a 500 after the client sends; observe the UI.
+          - Drop the connection after the request leaves but before the response.
+          - Reload and check whether the record actually exists.
+        pass: >
+          No success state without an ack. The ambiguous case (no response) shows a
+          pending/queued state and reconciles on reload — it never claims success.
+        fail: An optimistic "Saved" for a write that never landed.
+        automation: e2e
+
+      - id: ERR-02
+        title: Retries back off, jitter, and stay visible
+        gate: required
+        kind: positive
+        surfaces: [mobile, web]
+        setup: A queued write under a flaky connection.
+        steps:
+          - Drop the network; observe retry timing and the user-visible queue state.
+        pass: Exponential backoff with jitter, an idempotency key, and a queue the user can see and act on.
+        fail: A tight retry loop, an invisible queue, or retries that create duplicates.
+        automation: integration
+
+      - id: ERR-03
+        title: Every bad state has a self-service exit
+        gate: required
+        kind: positive
+        surfaces: [web, mobile]
+        setup: Enumerate error states reachable in the app.
+        steps:
+          - For each, check for a path back that does not require support intervention.
+        pass: Re-auth restores context; Trash restores deletes; drafts resume; a clear route to a known-good screen exists.
+        fail: Any dead end whose only exit is "contact support" or "clear your cookies".
+        automation: manual
+
+  - id: A11Y
+    name: Accessibility of state, focus, and announcement
+    tests:
+      - id: A11Y-01
+        title: Deleting a row moves focus somewhere logical
+        gate: required
+        kind: negative
+        surfaces: [web]
+        setup: Screen reader active; a list with removable rows.
+        steps:
+          - Delete a middle row, the last row, and the only row.
+        pass: Focus lands on the next item, or the list container/heading when the list empties. Never on <body>.
+        fail: Focus falls to the document body and the screen-reader user loses their place.
+        automation: manual
+        refs: [W3C ARIA APG]
+
+      - id: A11Y-02
+        title: Modals manage focus in both directions
+        gate: required
+        kind: positive
+        surfaces: [web]
+        setup: Screen reader active; a destructive-action dialog.
+        steps:
+          - Open the dialog; tab through it; press Escape; close via the button.
+        pass: >
+          Focus enters the dialog (on the least destructive action for destructive
+          dialogs), is trapped, Escape closes, and focus returns to the invoking element.
+        fail: Focus stays behind the dialog, escapes the trap, or is lost on close.
+        automation: manual
+
+      - id: A11Y-03
+        title: Status changes are announced at the right urgency
+        gate: required
+        kind: negative
+        surfaces: [web]
+        setup: Screen reader active.
+        steps:
+          - Trigger an autosave, a validation error, and the timeout warning.
+          - Inspect the live-region container's presence in the DOM before content injection.
+        pass: >
+          Autosave/success announced politely; errors and timeout warnings assertively;
+          live-region containers exist before content is injected.
+        fail: >
+          Nothing announced, everything assertive, or a live region created at the same
+          moment as its content (which announces nothing).
+        automation: manual
+        refs: [WCAG 4.1.3]
+
+      - id: A11Y-04
+        title: SPA route changes move or announce focus
+        gate: required
+        kind: negative
+        surfaces: [web]
+        setup: Screen reader active; client-side routing.
+        steps:
+          - Navigate between views via links and via Back.
+        pass: Focus moves to the new view's h1 (tabindex="-1") and/or the change is announced.
+        fail: Focus stays where it was and the screen-reader user has no signal the page changed.
+        automation: manual
+
+      - id: A11Y-05
+        title: Destructive and mode-switching controls meet target size
+        gate: recommended
+        kind: positive
+        surfaces: [web, mobile]
+        setup: Delete, submit, break-glass, and role-switch controls.
+        steps:
+          - Measure hit targets.
+        pass: Meets SC 2.5.8 (AA) with spacing; destructive controls are not adjacent to their common neighbours.
+        fail: Sub-minimum targets, or a destructive control placed where a mis-tap is likely.
+        automation: e2e
+        refs: [WCAG 2.5.8]
+
+  - id: AUDIT
+    name: Auditability
+    tests:
+      - id: AUDIT-01
+        title: Views are logged, not just edits, with the acting role
+        gate: blocker
+        kind: positive
+        surfaces: [web, mobile, api]
+        setup: Dual-hat user in a known mode.
+        steps:
+          - Open a record without editing it. Export it. Print it.
+          - Inspect the log entries.
+        pass: >
+          Each is logged with user ID, action type, record ID, timestamp, source IP/device,
+          success/failure, AND the role/mode in effect.
+        fail: >
+          Only writes are logged, or entries omit the mode — which makes a dual-hat
+          minimum-necessary question unanswerable after the fact.
+        automation: integration
+        refs: [45 CFR 164.312(b)]
+
+      - id: AUDIT-02
+        title: Logs are append-only and admins cannot quietly edit them
+        gate: blocker
+        kind: negative
+        surfaces: [api]
+        setup: Highest-privilege application admin account.
+        steps:
+          - Attempt to update and to delete a log entry through the app and the admin UI.
+          - Check whether log storage is append-only at the storage layer.
+          - Check time synchronization on log-writing hosts.
+        pass: >
+          Blocked at the application AND enforced by storage (append-only/immutable +
+          hashing). Hosts are NTP-synced.
+        fail: An application admin can edit or delete audit history, or timestamps can drift undetectably.
+        automation: integration
+
+      - id: AUDIT-03
+        title: Elevated-access events carry actor, reason, scope, and time
+        gate: blocker
+        kind: positive
+        surfaces: [api]
+        setup: Perform a break-glass, an impersonation, and a role switch.
+        steps:
+          - Inspect the resulting log entries for all four fields.
+        pass: All present and queryable together, not scattered across three log formats.
+        fail: Any of the four missing, or the events indistinguishable from normal access.
+        automation: integration
+
+      - id: AUDIT-04
+        title: Anomalies raise alerts, not just log lines
+        gate: required
+        kind: positive
+        surfaces: [api]
+        setup: Alerting configured.
+        steps:
+          - Simulate mass record access, after-hours access, an atypical export volume,
+            and access to a record outside the worker's caseload.
+        pass: Each fires an alert to a named owner within a defined window.
+        fail: The behaviour is recorded and nothing happens — the standing failure mode OCR names.
+        automation: integration
+        refs: [45 CFR 164.308(a)(1)(ii)(D)]
+
+      - id: AUDIT-05
+        title: A review workflow exists and someone is accountable for it
+        gate: required
+        kind: positive
+        surfaces: [process]
+        setup: Documentation and tooling review, not a code test.
+        steps:
+          - Confirm a review cadence, a named owner, a dashboard scoped to make review
+            feasible for a small team, and a record of past reviews.
+        pass: All four exist and the last review actually happened on schedule.
+        fail: >
+          Logging is implemented and review is aspirational. This is a compliance failure
+          independent of whether the logging works.
+        automation: manual
+
+      - id: AUDIT-06
+        title: Retention meets the regulatory floor
+        gate: required
+        kind: positive
+        surfaces: [process]
+        setup: Retention configuration.
+        steps:
+          - Confirm security documentation and audit retention against the 6-year floor.
+          - Confirm no rotation policy silently truncates below it.
+        pass: Retention >= 6 years, verified against the actual rotation/lifecycle config.
+        fail: A 90-day log retention default nobody revisited.
+        automation: manual
+        refs: [45 CFR 164.316(b)(2)(i)]
