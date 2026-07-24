@@ -106,3 +106,16 @@ Gates audited 2026-07-18 by reading the tests; **partials marked**. CIT included
   ⚠️ Never discriminate on the themed "Sign in to bas" heading — Keycloak's *error* page carries an
   identical `<title>`, so grepping for it reports missing clients as present (an earlier draft of this
   entry recommended exactly that). (bas-platform, 2026-07-17)
+
+- **iOS safe-area CSS is doubly inert by default — and `env()` padding can't fix a scrolled overlap.**
+  All four BAS apps (each wrapped in Capacitor/PWA on iOS) rendered content under the notch/status bar.
+  Two traps, both bit at once: (1) `env(safe-area-inset-*)` resolves to **0** unless the viewport meta
+  carries `viewport-fit=cover` — so KindredAccess's *existing* `env(safe-area-inset-bottom)` rules were
+  already dead no-ops; (2) `padding-top: env()` on the body/scroll container **scrolls away** with the
+  content, so it can't keep scrolled content clear of the status bar — only a `position:fixed` backdrop
+  strip (or a `sticky` header padded with the inset) stays put over that zone. → For a non-sticky
+  header: `viewport-fit=cover` + a fixed `body::before` strip in the header colour. Sticky header
+  (CIT): pad the header instead — a fixed strip would clip it. And mind the CSP: BN's `style-src 'self'`
+  (no unsafe-inline) forced a linked stylesheet, not an inline block. All gated on `env()`=0 → inert on
+  desktop; **verify on a real notched device** (a simulator's default may not surface the inset).
+  (bas-platform, 2026-07-24)

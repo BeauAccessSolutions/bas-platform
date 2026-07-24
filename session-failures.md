@@ -564,3 +564,18 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - Every planning chip scoped to "produce the plan, don't edit"; the marketing-site chip flagged as production-facing and gated the disability-disclosure rewrite on a human decision.
 
 ---
+## Session: 2026-07-24
+
+**Project:** bas-platform (four-app matrix audit + visual-review remediation)
+
+### Failures
+- [BN safe-area CSS]: added an inline `<style>` block → BN's CSP is `style-src 'self'` with no unsafe-inline/nonce, so it would have been blocked. Caught before commit; switched to a linked stylesheet served from 'self'.
+- [safe-area approach]: first planned `padding-top: env()` on the body → padding on the scroll container scrolls away, so it can't fix scrolled-content overlap. Re-derived to a fixed backdrop strip (and, for CIT's sticky header, header padding instead).
+- [CIT oidc test]: constructed `new jose.errors.JWTClaimValidationFailed(...)` → the suite mocks `jose` wholesale, so `jose.errors` was undefined. Switched to plain Error-shaped objects with `.code`/`.claim` (which is the real duck-typed contract anyway).
+- [CIT draft hook, self-caught]: unmount flush read `formRef.current` at effect cleanup → React detaches refs before passive-effect cleanup, so it read null and lost the draft. Fixed by serializing eagerly into a ref on each change.
+- [KA F1 announce, self-caught]: called `statusAnnouncer.announce(text, 'assertive')` → API takes an options object, so `'assertive'` was ignored and every send-failure would have announced politely. Fixed to `status('send', text, {assertive:true})`.
+- [gh pr create]: CIT #73 returned `504 Gateway Timeout` → the mutation had actually succeeded; verified via `gh pr list` rather than re-creating a duplicate.
+- [shell]: repeated `cd repos/<app>` failed because the Bash tool resets cwd between calls → used absolute paths. Also `ls --time-style` (GNU) failed on macOS → used `stat -f`.
+- [staticfiles manifest]: BN `main` was red (missing manifest for tailwind.min.css) and every BN branch inherited it → not a regression I introduced; fixed separately in #64, noted on each BN PR.
+
+---
