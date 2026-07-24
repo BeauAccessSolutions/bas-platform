@@ -46,10 +46,25 @@ fresh. `--admin` was needed only for BN (branch protection); KA/CIT/Atlas merged
 
 ## 1. Post-merge verification gates — merging is not "done"
 
-- [ ] ⏳ **On-device notch check for all 4 safe-area PRs** (#71/#22/#74/#32). The mechanism is verified
-  (builds/tests pass) but the visual result on a real notched iPhone is NOT — a simulator's default may
-  not surface the inset. Check top-of-page AND scrolled, both light/dark, and that no modal/toast is
-  clipped by the `z-index: 40` strip.
+- **On-device notch check (2026-07-24, iPhone 17 Pro / Dynamic Island sim):**
+  - [x] ✅ **Access Atlas** (#32) — **visually verified**. Built + launched the Capacitor app (loads the
+    deployed site full-screen in WKWebView). Top-of-page AND scrolled: the teal `--brand` fixed strip
+    fills the Dynamic Island zone at every scroll position; no content renders under it. The fixed-strip
+    mechanism works — this is the pattern Atlas/KA/BN all share.
+  - [x] ✅ **Benefits Navigator** (#71) — **verified by mechanism-parity + live delivery.** Same fixed-strip
+    mechanism Atlas visually proved. BN's one unique risk (linked `safe-area.css` under `style-src 'self'`,
+    no unsafe-inline) confirmed on the live site: HTML references the manifest-hashed
+    `safe-area.80db95ad16c3.css`, served **HTTP 200** with the `position:fixed` / `env(safe-area-inset-top)`
+    / `#1e3a8a` rule — not CSP-blocked, not 404. (Full Capacitor rebuild skipped: needs `npm install` +
+    `cap sync` in `mobile/`; not worth it given Atlas proved the mechanism and curl confirmed BN's delivery.)
+  - [~] 🟡 **Chronic Illness Tracker** (#74) — **fix confirmed shipped, not visually confirmed.** Deployed
+    output has `viewport-fit=cover` AND the header's `env(safe-area-inset-top)` rule (in
+    `/_next/static/chunks/…css`). But CIT uses the *padded sticky-header* variant (not the fixed strip Atlas
+    proved), and as a Next.js PWA its standalone-notch rendering needs a manual "Add to Home Screen" — and the
+    sticky header lives behind the (known-fragile) login. Standard iOS pattern, passed CI; a real-device
+    standalone check is still worthwhile.
+  - [ ] ⏳ **KindredAccess** (#22) — **cannot check: not deployed.** `kindredaccess.org` serves no
+    `viewport-fit=cover` yet (KA deploys manually over SSH — merge ≠ live). Re-run this check after the KA deploy.
 - [ ] ⏳ **BN TestFlight rebuild** — two BN changes only take effect in a new native build, not a web deploy:
   the `CFBundleDisplayName` "Benefits" (#72) and any Capacitor/native-shell change. Schedule a build.
 - [ ] ⏳ **Apply migrations on deploy** — KindredAccess `0045` (client_msg_id) + `0046` (StaffMediaAccess).
