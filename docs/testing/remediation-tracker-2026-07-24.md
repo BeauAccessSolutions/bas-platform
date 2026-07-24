@@ -1,42 +1,45 @@
 # Four-app remediation tracker
 
 Consolidated from the multi-role matrix audit sweep (2026-07-23) and the four-app visual review
-(2026-07-24). Live state as of 2026-07-24. Sources: the four per-app
+(2026-07-24). **§0 merge queue closed 2026-07-24 — all sweep PRs merged.** Sources: the four per-app
 [audit docs](.) and the [visual-review capture](four-app-visual-review-2026-07-24.md).
 
-Legend: ✅ shipped (PR open/merged) · 🟡 in progress · ⬜ not started · ⏳ blocked on a decision/gate
-· 🔒 blocked on merge (branch protection / stacked)
+Legend: ✅ shipped/merged · 🟡 in progress · ⬜ not started · ⏳ blocked on a decision/gate
 
 ---
 
-## 0. Merge queue — 14 PRs from this sweep are open, most need the solo owner's `--admin`
+## 0. Merge queue — ✅ CLOSED. Every sweep fix is merged (2026-07-24).
 
-Nothing here is merged yet. Branch protection requires a review the solo owner can't self-supply,
-so each needs `gh pr merge <n> --admin` (or the owner's own merge). **Order matters where stacked.**
+All 13 landing PRs merged; the 14th (BN #64) was correctly abandoned as redundant. Two PR numbers
+changed because stacked bases were deleted on merge and their dependents auto-closed — re-landed
+fresh. `--admin` was needed only for BN (branch protection); KA/CIT/Atlas merged without it.
 
-**Benefits Navigator** — all 🔒 (branch protection + `main` is red until #64 lands):
-- [ ] **#64** — CI staticfiles-manifest fix. **MERGE FIRST** — it un-reds `main`; every other BN PR inherits its red CI until then.
-- [ ] **#62** — audit integrity (append-only log + real client IP). Stacked on #64; auto-retargets to `main` on #64 merge, then may want a rebase.
-- [ ] **#71** — iOS safe-area inset.
-- [ ] **#72** — home-screen label (web meta + native `CFBundleDisplayName`).
+**KindredAccess** — all merged:
+- [x] **#20** — chat send-acknowledgement (F1).
+- [x] **#24** — staff-media audit log (F2). *(was #21; auto-closed when #20's base branch was deleted → rebased onto main, reopened as #24.)*
+- [x] **#22** — iOS safe-area inset.
+- [x] **#23** — home-screen label.
 
-**KindredAccess** — all ✅ CLEAN, mergeable now:
-- [ ] **#20** — chat send-acknowledgement (F1). **MERGE FIRST** of the KA stack.
-- [ ] **#21** — staff-media audit log (F2). Stacked on #20; auto-retargets on merge.
-- [ ] **#22** — iOS safe-area inset.
-- [ ] **#23** — home-screen label.
+**Chronic Illness Tracker** — all merged (each rebased to union the shared `CHANGELOG.md` `[Unreleased]` block):
+- [x] **#72** — draft persistence (C1).
+- [x] **#73** — OIDC sign-in diagnostics.
+- [x] **#74** — iOS safe-area inset.
+- [x] **#75** — home-screen label.
 
-**Chronic Illness Tracker**:
-- [ ] **#72** ✅ CLEAN — draft persistence (C1).
-- [ ] **#73** ✅ CLEAN — OIDC sign-in diagnostics.
-- [ ] **#74** ✅ CLEAN — iOS safe-area inset.
-- [ ] **#75** 🔒 — home-screen label (CI still settling / a required check).
+**Access Atlas** — both merged:
+- [x] **#31** — CSRF origin fix (unblocks all prod form submission).
+- [x] **#32** — iOS safe-area inset.
 
-**Access Atlas** — both ✅ CLEAN:
-- [ ] **#31** — CSRF origin fix (unblocks all prod form submission — highest user-facing impact).
-- [ ] **#32** — iOS safe-area inset.
+**Benefits Navigator** — merged (all via `--admin`):
+- [x] **#74** — audit integrity, append-only log + real client IP (F2/F4). *(was #62; auto-closed with its deleted stack base → cherry-picked onto main, reopened as #74.)*
+- [x] **#71** — iOS safe-area inset (rebased past ~5 peer merges).
+- [x] **#72** — home-screen label (web meta + native `CFBundleDisplayName`).
+- [x] ~~**#64**~~ — CI staticfiles-manifest fix. **Abandoned as redundant:** a peer session fixed the same red-`main` a different way (`#65 "don't require a collectstatic manifest under tests"`, merged). Left closed.
 
-> Pre-existing PRs NOT from this sweep (leave to their own threads): BN #70/#54/#52/#28/#27/#24/#22/#19/#17/#16,
+> **Lesson (logged):** never squash-merge a stack base with `--delete-branch` before retargeting its
+> dependent — the deleted base auto-closes the dependent PR (hit twice: KA #21, BN #62).
+>
+> Pre-existing PRs NOT from this sweep, left to their own threads: BN #73/#70/#54/#28/#27/#24/#22,
 > KA #16/#12/#7, Atlas #17.
 
 ---
