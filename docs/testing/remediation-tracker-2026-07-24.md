@@ -44,6 +44,40 @@ fresh. `--admin` was needed only for BN (branch protection); KA/CIT/Atlas merged
 
 ---
 
+## 0.5 Mobile-client architecture — a fix "reaching users" depends on this (2026-07-25)
+
+Discovered while chasing why CIT fixes weren't showing on the user's phone. **The web/backend
+remediation only reaches a mobile app if that app renders the hosted web app.** Three of four do;
+CIT does not.
+
+| App | Mobile client | Web/backend fixes reach it? |
+|---|---|---|
+| Access Atlas | Capacitor → loads hosted URL | ✅ automatically (verified on sim) |
+| Benefits Navigator | Capacitor → loads hosted URL | ✅ automatically |
+| KindredAccess (`kindredaccess-ios`) | Capacitor → loads `kindredaccess.org` | ✅ automatically, **once KA web is deployed** |
+| **Chronic Illness Tracker** | **Baseline** = native Expo app (`bas-apps/apps/cit`, own UI) | ❌ **no — needs native porting** |
+
+**CIT/Baseline is the sole native rewrite.** Its web-fix equivalents had to be re-implemented:
+- [x] ✅ **Draft persistence** ported to the native entry forms — [bas-apps#2](https://github.com/BeauAccessSolutions/bas-apps/pull/2), **merged**. SecureStore-backed, mirrors CIT-web C1.
+- ✅ **OIDC diagnostics (#73)** already reached Baseline — it's backend, shared via the CIT API.
+- N/A **safe-area** — native nav headers + `safe-area-context` handle it.
+- N/A **home-screen label** — native name comes from `app.json`, not `apple-mobile-web-app-title`.
+
+### Baseline sign-in — root-caused and fixed (2026-07-25)
+The review's "sign-in fails deterministically, persists across restarts" was **Baseline's native
+OIDC screen**, and it was a **stale TestFlight build**, not a code/config bug. Every server-side
+layer verified clean: CIT `/api/health` 200, email+password login works, signup works, backend
+`KEYCLOAK_ISSUER`/`KEYCLOAK_CLIENT_ID` (`cit-web`) match Baseline, `cit-web` exists in Keycloak
+with the native redirect registered (authorize → 302), URL scheme registered, zero OIDC failures
+logged. The smoking gun: the native OIDC issuer wasn't pointed at the real BAS Keycloak host until
+`9f8e54a` (**2026-07-17**), and `EXPO_PUBLIC_*` is compiled in at build time — so the installed
+build (≤ build 8) had the wrong issuer baked in. **Fixed by EAS build 9** (`--profile production
+--auto-submit`, correct issuer + the draft fix), submitted to TestFlight.
+- [ ] ⏳ **Confirm sign-in on build 9** once installable — the real proof of the diagnosis.
+- Note: CIT **web** is fully usable today (email/password) regardless.
+
+---
+
 ## 1. Post-merge verification gates — merging is not "done"
 
 - **On-device notch check (2026-07-24, iPhone 17 Pro / Dynamic Island sim):**
