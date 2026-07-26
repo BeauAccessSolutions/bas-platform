@@ -317,8 +317,10 @@ Per-app status — **only BN has been swept; the rest are unexamined, not clean:
   generic neighbouring keys were renamed rather than allow-listed (`type` → `insightType`, `subject`
   → `emailSubject`, `categories` → `safetyCategories`), on the reasoning that generic names are
   precisely the ones that get reused for health content later.
-  ⚠️ **Not yet confirmed deployed** — merging to `main` triggers the DO build; nobody has verified
-  the running revision. F-1 is fixed in `main`, not yet proven gone from production.
+  ✅ **Deployed.** DO deployment `c8c7c16a` (commit `d8d6529`, which contains the F-1 fix) reached
+  **ACTIVE** 2026-07-26 21:48Z and `/api/health` returns 200. Note the deploy for `747468a` (#78
+  itself) shows CANCELED — superseded by the next push, not failed; every deploy builds the whole
+  tree, so the fix went live in its successor. **F-1 is out of production.**
 - [x] **KindredAccess — swept 2026-07-26.** Own logging is **clean**: all 55 `core/` call sites log
   identifiers, never content, and `photo_moderation.py:274` already uses `type(exc).__name__` over
   `str(exc)`. The gap is Sentry: `send_default_pii=False` is set but `include_local_variables` is
