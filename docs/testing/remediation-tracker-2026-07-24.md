@@ -145,6 +145,23 @@ build (≤ build 8) had the wrong issuer baked in. **Fixed by EAS build 9** (`--
   unaudited in production despite the fix being merged. No automated deployment attestation ties
   production to a tested artifact.
 
+**KindredAccess — remaining P1/P2 from the same Codex audit.** Full record with per-finding
+verification status in [KA `docs/audits/CODEX_AUDIT_2026-07-26.md`](../../../kindredaccess_files/docs/audits/CODEX_AUDIT_2026-07-26.md).
+Not independently re-checked here — treat as leads:
+- [ ] ⬜ **P1** WebSocket messages can be silently lost — deployed client clears an optimistic message
+  with no server ack or idempotency key; the fix is merged and undeployed.
+- [ ] ⬜ **P1** Account export omits received messages, chat images, availability history, consent
+  metadata, profile views, subscription info, read receipts, user-linked analytics, Keycloak linkage.
+- [ ] ⬜ **P1** Deletion vs evidence preservation — open-report evidence held indefinitely with no
+  expiry or access review, against public 30-day deletion language.
+- [ ] ⬜ **P1** Privacy / App Store declarations conflict with behaviour — the checklist says no crash
+  data while Sentry is on (`docs/app-store/APP_PRIVACY_CHECKLIST.md:113`); the privacy page's deletion
+  link points at feedback rather than account deletion.
+- [ ] ⬜ **P2** CSP permits inline scripts/styles, and 429 responses bypass CSP middleware.
+- [ ] ⬜ **P2** CI has no formatter, linter, type checker, dependency audit, JS tests, browser E2E, or
+  **Nginx integration test** — the last would have caught the `internal-media` P0 above.
+- [ ] ⬜ **P2** Dependencies not locked or hash-pinned; docs drifted (README, roadmap, test counts).
+
 ---
 
 ## 3. Audit findings NOT yet filed as issues (from the per-app audit docs)
