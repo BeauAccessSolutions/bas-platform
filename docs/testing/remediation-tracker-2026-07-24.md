@@ -178,6 +178,35 @@ Decide file-or-fix. None are the fixed ones.
 - [ ] **C3** — 24h absolute session, no idle timeout (`SESS-05`). At the AAL2 ceiling; add idle only **after C1 ships** (it now has, #72).
 - [ ] **C5** — no auth-event history (login/password-change/export/session-terminate). The narrow, applicable slice of `AUDIT-01` for a single-user app.
 
+**Chronic Illness Tracker — closed 2026-07-26** (acute-capture audit + the Codex check-in findings;
+all four merged to `main` the same session, each with a real-Postgres or browser check, not just a
+green unit suite):
+- [x] **F-1** PHI in production logs → [#78](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/78). See §6.
+- [x] **Codex check-in P0 — stale dose metadata** → [#79](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/79).
+  Prisma reads `undefined` as "leave this column alone", so `SKIPPED`/`RAN_OUT` → `TAKEN` stayed
+  *taken because they ran out*, and that contradiction was in the CSV people take to appointments.
+  Ships a data migration repairing existing rows (Zach approved the backfill in-PR). 5 of its 6
+  real-Postgres cases fail without the fix.
+- [x] **Codex check-in P0 — schedules generate no dose slots** → [#80](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/80).
+  BID/TID collapsed to one toggle (the two doses shared a row, so marking one overwrote the other);
+  WEEKLY appeared daily. Now one slot per dose. **Slots are ordinal, not clock times** — a
+  `RegimenItem` stores a schedule and no times, so labels are "1st dose"/"2nd dose"; "Morning"/
+  "Evening" would assert something the user never entered. Slot 1 keeps the `''` key every existing
+  row carries, so no dose history is orphaned. Verified in a browser, not only in tests.
+- [x] **F-7** acute flag in the URL → [#81](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/81).
+  `/log?acute=true` → `/log#reaction`; a fragment is never sent to the server. `?type=` deliberately
+  stays a query param — which form you opened is preference-level, the class the logger classifies
+  non-PHI.
+- **Not covered:** C2/C3/C5 above are untouched, and F-3/F-4/F-5/F-6 are native (`bas-apps`), not web.
+
+**Chronic Illness Tracker (native, `bas-apps`)**:
+- [x] Bottom tab bar had **no icons at all** (five labels in a row) → [bas-apps#3](https://github.com/BeauAccessSolutions/bas-apps/pull/3),
+  Ionicons, outline/filled for active state, labels kept. Reported as "upside down triangles" on
+  TestFlight; **that symptom was never reproduced from source** — expo-router 57's `Tabs` is the JS
+  navigator and renders `null` for an undefined icon, so this adds icons where there were none. If
+  triangles survive the next EAS build, they are something else and need a screenshot.
+  Reaches TestFlight only via an **EAS build** — it ships font assets, so an OTA update will not carry it.
+
 **Access Atlas** ([audit](access-atlas-blocker-audit-2026-07-23.md)):
 - [ ] **A1** — 30-day sessions at the AAL1 ceiling; complicated by the access-identity (disability) tag. AAL/counsel call — see P1.
 - [ ] **A2** (outside matrix) — no rate limiting on public write endpoints. KA's `MessageRateLimiter` is the in-portfolio precedent.
@@ -273,7 +302,7 @@ Per-app status — **only BN has been swept; the rest are unexamined, not clean:
   closed our open question — the *installed* SDK defaults locals capture on — and widened the
   surface: every Celery task frame retains OCR text and document analysis, not just the two
   `ocr_service` sites.** Filed in [BN `TODO.md`](../../../benefits-navigator/TODO.md) with fixes.
-- [x] **Chronic Illness Tracker — swept 2026-07-26; fix in flight, not yet merged or deployed.**
+- [x] **Chronic Illness Tracker — swept 2026-07-26; fix MERGED to `main` 2026-07-26 (deploys on push).**
   **CIT has no Sentry or any error-reporting SDK**, so the `include_local_variables` defect that hit
   BN, KA and (differently) page-repair does not apply here — CIT's variant was the `isAcute` rename.
   **[CIT#78](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/78)
@@ -283,8 +312,13 @@ Per-app status — **only BN has been swept; the rest are unexamined, not clean:
   `tests/unit/log-call-site-keys.test.ts`, which reads `logger.*` call sites — the layer
   `phi-fields-drift.test.ts` structurally cannot see — and handles un-analysable spread payloads via a
   `REVIEWED_SPREADS` allowlist that fails until each is deliberately listed.
-  ⚠️ **F-1 remains live in production until #78 merges and deploys** — verified still present at
-  `origin/main` (`src/app/api/entries/symptoms/route.ts:85`).
+  **#78 merged 2026-07-26 21:00Z** (squash, CI green). The guard was mutation-tested before merge:
+  re-introducing the exact leak fails the new test with `…/symptoms/route.ts:87 → isAcute`. Three
+  generic neighbouring keys were renamed rather than allow-listed (`type` → `insightType`, `subject`
+  → `emailSubject`, `categories` → `safetyCategories`), on the reasoning that generic names are
+  precisely the ones that get reused for health content later.
+  ⚠️ **Not yet confirmed deployed** — merging to `main` triggers the DO build; nobody has verified
+  the running revision. F-1 is fixed in `main`, not yet proven gone from production.
 - [x] **KindredAccess — swept 2026-07-26.** Own logging is **clean**: all 55 `core/` call sites log
   identifiers, never content, and `photo_moderation.py:274` already uses `type(exc).__name__` over
   `str(exc)`. The gap is Sentry: `send_default_pii=False` is set but `include_local_variables` is
