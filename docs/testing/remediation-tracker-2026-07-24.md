@@ -174,7 +174,19 @@ Decide file-or-fix. None are the fixed ones.
 - [ ] **F6** — media ownership resolved by `photo__endswith` suffix match; availability/correctness bug (not a leak — verified). Key on the stored path.
 
 **Chronic Illness Tracker** ([audit](cit-blocker-audit-2026-07-23.md)):
-- [ ] **C2** — no idempotency on entry creation (`REV-01`); duplicate symptom/sleep/food entries **skew the correlation analysis** that is the app's point. Follow the dose-event natural-key pattern.
+- [x] **C2** — no idempotency on entry creation (`REV-01`) → **[CIT#82](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/82) merged 2026-07-26**,
+  native client follows in [bas-apps#4](https://github.com/BeauAccessSolutions/bas-apps/pull/4).
+  Not the natural-key pattern the audit suggested: entries have no natural key, and every candidate
+  (user + timestamp + name) is a payload hash by another name, which cannot tell a retry from a real
+  second entry and so silently swallows real data — two doses an hour apart, the same symptom twice
+  in a flare. Instead a **client-minted key per submission attempt**, held across retries of that
+  attempt and cleared on success; `(userId, key) → entryId` written in the entry's own transaction.
+  **Fails open** (no key creates as before), which is what let the backend ship before the native
+  client and is why the rule "never block logging" survives. Reasoning and rejected alternatives in
+  CIT `docs/adr/009-entry-idempotency.md`.
+  Verified by reproducing the bug in a browser — patched `fetch` so the first save reached the
+  server and the reply was lost, then pressed Save again: one row where there would have been two —
+  plus 10 real-Postgres cases including the concurrent-duplicate race.
 - [ ] **C3** — 24h absolute session, no idle timeout (`SESS-05`). At the AAL2 ceiling; add idle only **after C1 ships** (it now has, #72).
 - [ ] **C5** — no auth-event history (login/password-change/export/session-terminate). The narrow, applicable slice of `AUDIT-01` for a single-user app.
 
