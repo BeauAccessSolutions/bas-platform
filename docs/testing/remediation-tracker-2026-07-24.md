@@ -299,8 +299,16 @@ Per-app status — **only BN has been swept; the rest are unexamined, not clean:
 >   `sentry_sdk.init` omits `include_local_variables=False`, and pin `sentry-sdk` exactly so the
 >   default cannot shift underneath the decision.
 - [ ] ⬜ **Disability Wiki** — 16 log call sites, no redaction layer. Unexamined.
-- [ ] ⬜ **page-repair** — 5 log call sites, no redaction layer. Worker fronting Claude with a KV +
-  Durable Object credit ledger; check for page content and token/credit identifiers in logs. Unexamined.
+- [x] **page-repair — swept 2026-07-26.** [Full audit](../../../page-repair/docs/audit-2026-07-26.md).
+  **Strongest codebase of the six**; no P0/P1. Logging is counts-only except one site:
+  `proxy/src/index.ts:299-300` logs the upstream Anthropic error body (300 chars, 100% sampling), and
+  4xx bodies can quote the request — whose prompt carries allowlisted `href`/`innerHtml`/`nearbyText`.
+  **P2 not P1** because `sanitizeContext` allowlists and length-caps before the prompt is built, so
+  the worst case is a few hundred chars of structured control context, not a whole document.
+  Second finding, same weight: the refund closure is `.catch(() => {})`, so a failed refund on the
+  money path silently costs a user a paid credit with no log or retry.
+  ⚠️ **Correction:** this entry previously said page-repair has "no test config." It does have tests
+  (`npm test` → a Node harness); the claim came from globbing for jest/vitest/pytest only.
 - [ ] ⬜ **Access Atlas** — has `moderation.ts`/`photo-reports.ts` redaction-adjacent code but no
   logger scrubber. Account-free browsing limits exposure; still unexamined.
 - [ ] ⬜ **bas-apps (native)** — `@bas/api`, `@bas/auth` and the CIT client have no scrubber, and the
