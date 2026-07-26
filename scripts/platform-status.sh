@@ -75,9 +75,25 @@ for p in "$REPOS"/*; do
   [ -e "$p" ] && apps+=("$(basename "$p")")
 done
 
+# Which GitHub identity is answering. This machine has more than one account in
+# the gh keyring, and the inactive one cannot see several of these repos — so the
+# account in effect is part of the reading, not trivia.
+UNREADABLE_ANY=0
+GH_ACCOUNT="unknown"
+if command -v gh >/dev/null 2>&1; then
+  if [ "$DO_NET" -eq 1 ]; then
+    GH_ACCOUNT="$(gh api user --jq .login 2>/dev/null || echo 'not-authenticated')"
+  else
+    GH_ACCOUNT="not-checked (--no-net)"
+  fi
+else
+  GH_ACCOUNT="gh not installed"
+fi
+
 [ "$JSON" -eq 1 ] || {
   echo "# Platform status — real state ($(date '+%Y-%m-%d %H:%M'))"
   echo "# hub: $HUB"
+  echo "# gh account: $GH_ACCOUNT"
   echo
 }
 
@@ -112,7 +128,7 @@ for app in "${apps[@]}"; do
   slugs=$(echo $slugs | xargs 2>/dev/null)
   repo_slug=$(echo "$slugs" | tr ' ' ',')
 
-  pushed="no"; ahead="?"; behind="?"; prs="[]"; prcount=0
+  pushed="no"; ahead="?"; behind="?"; prs="[]"; prcount=0; pr_unreadable=""
   if [ -n "$slugs" ]; then
     # is the current branch on any remote?
     for r in $(git -C "$p" remote 2>/dev/null); do
@@ -128,10 +144,19 @@ for app in "${apps[@]}"; do
     if command -v gh >/dev/null 2>&1; then
       lines=""
       for s in $slugs; do
-        out=$(gh pr list -R "$s" --state open \
-                --json number,title,headRefName \
-                -q ".[] | {repo:\"$s\",number,headRefName,title} | @json" 2>/dev/null)
-        [ -n "$out" ] && lines="$lines$out"$'\n'
+        if out=$(gh pr list -R "$s" --state open \
+                  --json number,title,headRefName \
+                  -q ".[] | {repo:\"$s\",number,headRefName,title} | @json" 2>/dev/null); then
+          [ -n "$out" ] && lines="$lines$out"$'\n'
+        else
+          # A FAILED READ IS NOT ZERO PRs. This used to be swallowed: the error
+          # went to /dev/null, `out` came back empty, and the report printed a
+          # confident "open PRs : 0" — the status tool agreeing with the very
+          # mistake it exists to catch. In practice the cause is almost always
+          # `gh` active on an account without access to the repo (this machine
+          # has two), which is exactly the drift a status pass should surface.
+          pr_unreadable="$pr_unreadable $s"
+        fi
       done
       prcount=$(printf '%s' "$lines" | grep -c . )
       if [ "$prcount" -gt 0 ]; then
@@ -148,9 +173,11 @@ for app in "${apps[@]}"; do
 
   if [ "$JSON" -eq 1 ]; then
     # compact JSON line per app
-    printf '{"app":"%s","git":true,"branch":"%s","dirty":%s,"repo":"%s","pushed":"%s","ahead":"%s","behind":"%s","open_prs":%s,"health":"%s","last":%s,"prs":%s}\n' \
+    # prs_unreadable is non-empty when open_prs is a FLOOR, not a count — a
+    # consumer that treats 0 as "no open PRs" must check this field first.
+    printf '{"app":"%s","git":true,"branch":"%s","dirty":%s,"repo":"%s","pushed":"%s","ahead":"%s","behind":"%s","open_prs":%s,"prs_unreadable":"%s","gh_account":"%s","health":"%s","last":%s,"prs":%s}\n' \
       "$app" "$branch" "${dirty:-0}" "$repo_slug" "$pushed" "$ahead" "$behind" \
-      "${prcount:-0}" "${health%% *}" \
+      "${prcount:-0}" "$(echo $pr_unreadable | xargs 2>/dev/null)" "$GH_ACCOUNT" "${health%% *}" \
       "$(printf '%s' "$last" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))' 2>/dev/null || echo '""')" \
       "$prs"
   else
@@ -162,7 +189,13 @@ for app in "${apps[@]}"; do
     fi
     printf '   worktree  : %s uncommitted change(s)\n' "${dirty:-0}"
     printf '   last      : %s\n' "$last"
-    printf '   open PRs  : %s\n' "$prcount"
+    if [ -n "$pr_unreadable" ]; then
+      printf '   open PRs  : %s  ⚠ UNKNOWN — could not read%s (gh account: %s)\n' \
+        "$prcount" "$pr_unreadable" "$GH_ACCOUNT"
+      UNREADABLE_ANY=1
+    else
+      printf '   open PRs  : %s\n' "$prcount"
+    fi
     if [ "$prcount" -gt 0 ] && command -v python3 >/dev/null 2>&1; then
       python3 - "$prs" <<'PY' 2>/dev/null
 import json,sys
@@ -184,4 +217,14 @@ if [ "$JSON" -ne 1 ]; then
     printf '   %-14s: HTTP %s %s\n' "$name" "$(health_probe "$url")" "$url"
   done
   echo
+fi
+
+# Repeat the warning at the end. Buried mid-report, one "UNKNOWN" line in a
+# nine-app listing is easy to scroll past — and the whole point of this report is
+# that it is trusted over TRACKER.md, so a partial reading has to announce itself.
+if [ "$JSON" -ne 1 ] && [ "${UNREADABLE_ANY:-0}" -eq 1 ]; then
+  printf '⚠  SOME PR COUNTS ABOVE ARE INCOMPLETE — gh could not read every repo\n'
+  printf '   as "%s". Counts marked UNKNOWN are a floor, not a total.\n' "$GH_ACCOUNT"
+  printf '   Available accounts:   gh auth status\n'
+  printf '   Switch:               gh auth switch --hostname github.com --user <login>\n\n'
 fi
