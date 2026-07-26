@@ -180,7 +180,8 @@ Decide file-or-fix. None are the fixed ones.
 
 **Chronic Illness Tracker — closed 2026-07-26** (acute-capture audit + the Codex check-in findings;
 all four merged to `main` the same session, each with a real-Postgres or browser check, not just a
-green unit suite):
+green unit suite). **All four are live**: deployment `b1f3ccee` (commit `ee50955`, the last of them)
+went ACTIVE 22:06Z with `/api/health` 200:
 - [x] **F-1** PHI in production logs → [#78](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/78). See §6.
 - [x] **Codex check-in P0 — stale dose metadata** → [#79](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/79).
   Prisma reads `undefined` as "leave this column alone", so `SKIPPED`/`RAN_OUT` → `TAKEN` stayed
