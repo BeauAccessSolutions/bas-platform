@@ -273,8 +273,18 @@ Per-app status — **only BN has been swept; the rest are unexamined, not clean:
   closed our open question — the *installed* SDK defaults locals capture on — and widened the
   surface: every Celery task frame retains OCR text and document analysis, not just the two
   `ocr_service` sites.** Filed in [BN `TODO.md`](../../../benefits-navigator/TODO.md) with fixes.
-- [ ] ⬜ **Chronic Illness Tracker** — F-1 open and live in production; fix the `isAcute` key **and**
-  extend the drift test to cover log call sites.
+- [x] **Chronic Illness Tracker — swept 2026-07-26; fix in flight, not yet merged or deployed.**
+  **CIT has no Sentry or any error-reporting SDK**, so the `include_local_variables` defect that hit
+  BN, KA and (differently) page-repair does not apply here — CIT's variant was the `isAcute` rename.
+  **[CIT#78](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/78)
+  (`fix/log-payload-fail-closed`, `df7b616`) fixes it, and fixes it better than recommended:** the
+  runtime now **fails closed** on an allowlist (`SAFE_LOG_KEYS`) instead of a PHI denylist, so an
+  unknown key is redacted by default and a rename cannot defeat it *by construction*. Adds
+  `tests/unit/log-call-site-keys.test.ts`, which reads `logger.*` call sites — the layer
+  `phi-fields-drift.test.ts` structurally cannot see — and handles un-analysable spread payloads via a
+  `REVIEWED_SPREADS` allowlist that fails until each is deliberately listed.
+  ⚠️ **F-1 remains live in production until #78 merges and deploys** — verified still present at
+  `origin/main` (`src/app/api/entries/symptoms/route.ts:85`).
 - [x] **KindredAccess — swept 2026-07-26.** Own logging is **clean**: all 55 `core/` call sites log
   identifiers, never content, and `photo_moderation.py:274` already uses `type(exc).__name__` over
   `str(exc)`. The gap is Sentry: `send_default_pii=False` is set but `include_local_variables` is
