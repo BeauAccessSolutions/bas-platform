@@ -198,6 +198,53 @@ Decide file-or-fix. None are the fixed ones.
 
 ---
 
+## 6. Log & exception PII/PHI hygiene — cross-app sweep (opened 2026-07-26)
+
+**Origin.** A CIT vertical-slice audit found a PHI boolean logged under an *abbreviated key*
+(`isAcute` for `isAcuteCapture`), which defeats CIT's field-name redaction allowlist by construction
+and is invisible to `phi-fields-drift.test.ts` because that test reconciles **Prisma columns**, not
+log call sites. Confirmed live at web production `51afc45`. See
+[cit-acute-capture-audit-2026-07-26.md](cit-acute-capture-audit-2026-07-26.md).
+
+**Why this is a platform item, not a CIT bug.** [`INVARIANTS.md`](../../INVARIANTS.md) has no
+invariant governing what an app writes to its own logs — "no PHI in logs" exists only as *CIT's*
+app-level non-negotiable #3. And a grep across every BAS repo found **CIT is the only app with any
+redaction layer at all.** Two apps independently built a schema-shaped guard (CIT's drift test, BN's
+`check_security_invariants.py` Check 1) and **both have the same blind spot**: they inspect field
+definitions, never the log or exception surface.
+
+- [ ] ⬜ **Platform — add invariant #6, log hygiene**, enforced by construction per that document's
+  own standard. For logs that means a lint rule over `logger.*` payload keys and `str(e)`/`{e}`
+  interpolation — a schema-based check provably cannot catch a call-site rename.
+- [ ] ⬜ **Platform — promote CIT's `src/lib/logger` to a shared package.** Its `scrubString()` was
+  built for exactly the exception-passthrough class found in BN, and today one app has it.
+
+Per-app status — **only BN has been swept; the rest are unexamined, not clean:**
+
+- [x] **Benefits Navigator — swept 2026-07-26.** Own logging is disciplined (325 call sites; the 20
+  user-adjacent ones log ids/counts/lengths, not content), `send_default_pii=False` is set and
+  CI-guarded. Residual risk is third-party exception text: Sentry stack-frame locals
+  (`include_local_variables` unset → SDK default `True`, independent of `send_default_pii`) would
+  carry OCR'd claim-document text out of `claims/services/ocr_service.py`, plus 8 `str(e)`
+  interpolations. Filed in [BN `TODO.md`](../../../benefits-navigator/TODO.md) with fixes.
+- [ ] ⬜ **Chronic Illness Tracker** — F-1 open and live in production; fix the `isAcute` key **and**
+  extend the drift test to cover log call sites.
+- [ ] ⬜ **KindredAccess** — 112 log call sites, no redaction layer. Chat app: message content is the
+  sensitive payload. Unexamined.
+- [ ] ⬜ **Disability Wiki** — 16 log call sites, no redaction layer. Unexamined.
+- [ ] ⬜ **page-repair** — 5 log call sites, no redaction layer. Worker fronting Claude with a KV +
+  Durable Object credit ledger; check for page content and token/credit identifiers in logs. Unexamined.
+- [ ] ⬜ **Access Atlas** — has `moderation.ts`/`photo-reports.ts` redaction-adjacent code but no
+  logger scrubber. Account-free browsing limits exposure; still unexamined.
+- [ ] ⬜ **bas-apps (native)** — `@bas/api`, `@bas/auth` and the CIT client have no scrubber, and the
+  monorepo has **no test config at all**, so nothing here is regression-guarded.
+
+> **Method note.** The per-app counts above are call-site counts, not leak counts — I counted, I did
+> not read them (BN excepted). They establish that no mechanism would stop a leak, not that one has
+> occurred. Do not downgrade any ⬜ to "clean" without reading its sites.
+
+---
+
 ## Suggested next actions (once merges clear)
 
 1. **Merge the queue** in stack order (§0), starting BN #64 and KA #20; run `--admin`.
