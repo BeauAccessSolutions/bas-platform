@@ -118,6 +118,14 @@ build (≤ build 8) had the wrong issuer baked in. **Fixed by EAS build 9** (`--
 - [ ] **#61** `AUDIT-01` — audit entries carry no acting role, so dual-hat access is unattributable. Add
   `organization`+`role` columns (also enables the `AUDIT-04` anomaly queries).
 
+**KindredAccess** — from the [report/block slice audit](kindredaccess-report-block-audit-2026-07-26.md) (2026-07-26):
+- [ ] **#25** `K-1` — report `description` has no server-side length limit; `maxlength=2000` is a widget
+  attribute only, so a direct POST stores unbounded text into the moderation queue.
+- [ ] **#26** `K-2` — no rate limit on report/block, and the dedup window matches exact text only. The
+  `URGENT_REASONS` lane sorts to the front of the queue, so `threat` is the flood target. The model
+  comment already anticipates this ("a broad set is the same as no prioritisation") — the set is
+  defended, the volume isn't. Fix must never reject a *first* report against a target.
+
 ---
 
 ## 3. Audit findings NOT yet filed as issues (from the per-app audit docs)
