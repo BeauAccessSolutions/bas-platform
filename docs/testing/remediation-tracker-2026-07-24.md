@@ -229,12 +229,14 @@ definitions, never the log or exception surface.
 
 Per-app status — **only BN has been swept; the rest are unexamined, not clean:**
 
-- [x] **Benefits Navigator — swept 2026-07-26.** Own logging is disciplined (325 call sites; the 20
-  user-adjacent ones log ids/counts/lengths, not content), `send_default_pii=False` is set and
-  CI-guarded. Residual risk is third-party exception text: Sentry stack-frame locals
-  (`include_local_variables` unset → SDK default `True`, independent of `send_default_pii`) would
-  carry OCR'd claim-document text out of `claims/services/ocr_service.py`, plus 8 `str(e)`
-  interpolations. Filed in [BN `TODO.md`](../../../benefits-navigator/TODO.md) with fixes.
+- [x] **Benefits Navigator — swept 2026-07-26, then independently re-found by a Codex audit.** Own
+  logging is disciplined (325 call sites; the 20 user-adjacent ones log ids/counts/lengths, not
+  content), `send_default_pii=False` is set and CI-guarded. Residual risk is third-party exception
+  text: Sentry stack-frame locals (`include_local_variables` unset → SDK default `True`, independent
+  of `send_default_pii`), plus 8 `str(e)` interpolations. **Codex confirmed it at `settings.py:696`,
+  closed our open question — the *installed* SDK defaults locals capture on — and widened the
+  surface: every Celery task frame retains OCR text and document analysis, not just the two
+  `ocr_service` sites.** Filed in [BN `TODO.md`](../../../benefits-navigator/TODO.md) with fixes.
 - [ ] ⬜ **Chronic Illness Tracker** — F-1 open and live in production; fix the `isAcute` key **and**
   extend the drift test to cover log call sites.
 - [x] **KindredAccess — swept 2026-07-26.** Own logging is **clean**: all 55 `core/` call sites log
@@ -248,10 +250,18 @@ Per-app status — **only BN has been swept; the rest are unexamined, not clean:
   [KA `docs/audits/LOG_PII_SENTRY_AUDIT_2026-07-26.md`](../../../kindredaccess_files/docs/audits/LOG_PII_SENTRY_AUDIT_2026-07-26.md).
   *Pass carries no test/dependency signal — both declined as writes under a read-only budget.*
 
-> **Pattern across two apps now: the leak is never the log statement.** BN and KA both write
-> disciplined log calls and both ship frame locals to Sentry with `send_default_pii=False` set and
-> `include_local_variables` unset. Treat that pair as a single portfolio-wide config defect, and
-> check it in every app with error reporting before auditing its log statements.
+> **Three apps, three hits, two independent auditors: the leak is never the log statement.** BN and
+> KA both write disciplined log calls and both ship frame locals to Sentry with
+> `send_default_pii=False` set and `include_local_variables` unset; a separate Codex audit re-found
+> it in BN without seeing this sweep. `send_default_pii` governs request bodies, cookies and user
+> identifiers — **it does not touch frame locals**, and every team here has read it as though it
+> does. Treat this as one portfolio-wide config defect, not N app bugs, and **check the
+> error-reporter config before auditing any app's log statements** — doing it in that order would
+> have cut both of our sweeps to a fraction of the work.
+>
+> - [ ] ⬜ **Add to `check_security_invariants.py`-style gates in every app:** fail the build if
+>   `sentry_sdk.init` omits `include_local_variables=False`, and pin `sentry-sdk` exactly so the
+>   default cannot shift underneath the decision.
 - [ ] ⬜ **Disability Wiki** — 16 log call sites, no redaction layer. Unexamined.
 - [ ] ⬜ **page-repair** — 5 log call sites, no redaction layer. Worker fronting Claude with a KV +
   Durable Object credit ledger; check for page content and token/credit identifiers in logs. Unexamined.
