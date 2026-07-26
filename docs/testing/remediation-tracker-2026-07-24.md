@@ -119,12 +119,31 @@ build (≤ build 8) had the wrong issuer baked in. **Fixed by EAS build 9** (`--
   `organization`+`role` columns (also enables the `AUDIT-04` anomaly queries).
 
 **KindredAccess** — from the [report/block slice audit](kindredaccess-report-block-audit-2026-07-26.md) (2026-07-26):
-- [ ] **#25** `K-1` — report `description` has no server-side length limit; `maxlength=2000` is a widget
-  attribute only, so a direct POST stores unbounded text into the moderation queue.
-- [ ] **#26** `K-2` — no rate limit on report/block, and the dedup window matches exact text only. The
-  `URGENT_REASONS` lane sorts to the front of the queue, so `threat` is the flood target. The model
-  comment already anticipates this ("a broad set is the same as no prioritisation") — the set is
-  defended, the volume isn't. Fix must never reject a *first* report against a target.
+- [ ] **#25** `K-1` — report `description` has no server-side length limit at the form or model layer;
+  `maxlength=2000` is a widget attribute only. *Revised down:* `DATA_UPLOAD_MAX_MEMORY_SIZE` caps the
+  body at 5 MB, so the gap is 2,000 chars advertised vs ~5 MB enforced, not unbounded.
+- [x] ~~**#26** `K-2` — no rate limit on report/block~~ **RETRACTED, closed invalid.**
+  `RateLimitMiddleware` gives `/report/` a dedicated 5-writes-per-minute per-user bucket whose own
+  comment names the urgent-lane threat model. The finding came from grepping `core/views.py` and
+  concluding absence; rate limiting is middleware. Method fix landed in the audit skill.
+
+**KindredAccess — P0s from the parallel Codex audit of the deployed build (2026-07-26), confirmed from source:**
+- [ ] ⬜ **Production dynamic routes returning HTTP 429.** `RATE_LIMIT_TRUSTED_PROXIES` defaults to
+  empty (`settings_production.py:372-374`); behind Nginx over a Unix socket, requests collapse onto
+  one shared bucket. `deploy/README.md:83` warns about this exact configuration. **Availability
+  outage — highest priority in the portfolio right now.**
+- [ ] ⬜ **Protected media delivery broken.** Django emits `X-Accel-Redirect: /internal-media/...`
+  (`media_proxy.py:330`, `settings_production.py:210`) but `deploy/nginx-kindredaccess.conf:71` has
+  no such location — the file literally says *"If you later add X-Accel-Redirect, expose an
+  `internal;` location here."* The app was upgraded; the nginx conf never was. Authorized profile
+  photos, chat images and moderation evidence cannot be served.
+- [ ] ⏳ **NCMEC escalation path unresolved** while public Terms promise CSAM is reported to NCMEC
+  (`core/templates/core/terms.html:159`). Counsel decision, not engineering — see
+  `docs/audits/LAUNCH_DECISIONS_COUNSEL_BRIEF_2026-07-23.md`.
+- [ ] ⬜ **Production lags `main` by four merged fixes** — chat send-acknowledgement, iOS safe area,
+  iOS title, and the **staff-media audit log**. That last one means privileged staff media access is
+  unaudited in production despite the fix being merged. No automated deployment attestation ties
+  production to a tested artifact.
 
 ---
 

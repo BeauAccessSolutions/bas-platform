@@ -27,8 +27,18 @@ how an audit produces a confident P0 about a bug that was fixed upstream a week 
 git fetch --all --quiet
 git rev-parse --short HEAD && git branch --show-current
 git merge-base --is-ancestor <shipped-commit> HEAD && echo "HEAD contains shipped" || echo "DIVERGENT"
-git log --oneline HEAD..origin/<default-branch> | head
+# BOTH directions. The second one is the one that gets forgotten:
+git log --oneline HEAD..origin/<default-branch> | head          # what my checkout lacks
+git log --oneline <shipped-commit>..origin/<default-branch>     # what PRODUCTION lacks
 ```
+
+**Deployment lag is its own finding.** "The checkout contains what ships" is only half the question;
+the other half is what ships *doesn't* contain. A production commit that is an ancestor of `main` is
+green on the first check and can still be missing every merged fix of the last month — so users are
+running code nobody has audited in weeks, and a reviewer reads "provenance ✅ clean" as though
+production were current. Report the lag with the count and name the merged-but-undeployed commits.
+(Missed exactly this way on KindredAccess, 2026-07-26: reported provenance clean while production
+lagged `main` by four merged fixes, one of them a safety audit-log.)
 
 Establish and **write into the report header**:
 
@@ -246,7 +256,19 @@ the audit surfaced a transferable lesson.
   second slice while the first has unresolved links.
 - **Evidence or `UNVERIFIED`.** Never from plausibility. Never `PASS` on a render-dependent link in a
   static pass.
-- **A missing link is a finding.** "I couldn't find the delete handler" means deletion may not exist.
+- **A missing link is a finding — but search every layer before calling it missing.** Cross-cutting
+  controls do not live in the handler. Rate limiting, authn/authz, CSRF, caching, tenancy scoping and
+  input caps are routinely implemented in **middleware, decorators, base classes, framework settings,
+  the ORM manager, or the web server config** — so grepping the view file and finding nothing proves
+  only that it isn't in the view file. Before writing "there is no X," check: middleware stack,
+  decorators (including ones applied by a base class or a URL wrapper), framework settings, and the
+  reverse proxy. This is [`null-result-guard`](../null-result-guard/SKILL.md) applied to
+  *architecture* rather than to a search string.
+  > Filed a P2 against KindredAccess claiming report/block had no rate limiting, having grepped only
+  > `core/views.py`. `RateLimitMiddleware` gave `/report/` a dedicated 5-writes-per-minute per-user
+  > bucket, with a comment naming the exact threat model I "found." Retracted. The same pass
+  > overstated a companion finding by missing a global `DATA_UPLOAD_MAX_MEMORY_SIZE` cap in settings.
+  > Two errors, one root cause: searching a single layer and reporting absence.
 - **NOT-BUILT is not a bug.** Never score an unimplemented feature as a defect.
 - **Don't fix while auditing.** Record and keep walking; fixing mid-walk loses the chain and yields a
   half-audit plus an unreviewed patch.

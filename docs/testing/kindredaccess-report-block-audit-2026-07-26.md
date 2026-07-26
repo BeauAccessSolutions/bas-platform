@@ -1,5 +1,38 @@
 # KindredAccess — vertical-slice audit: report / block (safety)
 
+> ## ⚠️ REVISION 2026-07-26 — K-2 RETRACTED, K-1 overstated, provenance was not "clean"
+>
+> A parallel Codex audit of the deployed build surfaced three errors in this document. All three
+> were re-verified against source before writing this block.
+>
+> **K-2 is wrong and [kindredaccess#26](https://github.com/BeauAccessSolutions/kindredaccess/issues/26)
+> is closed as invalid.** `RateLimitMiddleware` (`core/middleware.py:113`, installed at
+> `settings_production.py:129`) already rate-limits `/report/`, `/block/` and `/unblock/` per user,
+> and gives `/report/` a **dedicated 5-writes-per-minute bucket** whose comment names the exact
+> urgent-lane threat model this audit claimed was unaddressed. It also counts writes only, so
+> reloading the form doesn't throttle a legitimate reporter. **Root cause of the error:** grepped
+> `core/views.py` for `ratelimit|throttle`, found nothing, concluded absence. Rate limiting is
+> middleware here. One layer searched, absence reported.
+>
+> **K-1 survives but its failure scenario was overstated.** `DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880`
+> (`settings.py:249`) caps the request body at 5 MB, so the "10 MB description" is unreachable. The
+> real gap is 2,000 chars advertised vs ~5 MB enforced. Corrected on
+> [#25](https://github.com/BeauAccessSolutions/kindredaccess/issues/25).
+>
+> **Provenance was reported "✅ clean" and wasn't.** This audit checked that the checkout *contains*
+> production and never checked what production *lacks*. Production `b5b6036` is behind `main` by
+> four merged fixes — chat send-acknowledgement, iOS safe area, iOS title, and the staff-media audit
+> log. The last is a safety control: privileged staff media access is unaudited **in production**
+> even though the fix is merged. Deployment lag is a finding; this document treated it as a checkmark.
+>
+> Both method lessons are now written into the `vertical-slice-audit` skill (Phase 0 both-directions
+> check; a discipline rule that cross-cutting controls live in middleware/decorators/settings/proxy
+> and a single-layer grep cannot establish absence).
+>
+> **Codex's own KA P0s are not scored here** — production-wide HTTP 429, the missing Nginx
+> `internal-media` location, and the unresolved NCMEC path. All three were independently confirmed
+> from source and belong to their own slices; see the platform tracker.
+
 **Slice:** user reporting and blocking · **Priority:** P0 surface · **Date:** 2026-07-26
 **Method:** `vertical-slice-audit` — Phases 0–5 · **Verdict class:** `VERIFIED-CODE` (static)
 **Mutation budget:** read-only. No writes, no migrations, no package installs.
