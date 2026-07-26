@@ -229,8 +229,21 @@ Per-app status — **only BN has been swept; the rest are unexamined, not clean:
   interpolations. Filed in [BN `TODO.md`](../../../benefits-navigator/TODO.md) with fixes.
 - [ ] ⬜ **Chronic Illness Tracker** — F-1 open and live in production; fix the `isAcute` key **and**
   extend the drift test to cover log call sites.
-- [ ] ⬜ **KindredAccess** — 112 log call sites, no redaction layer. Chat app: message content is the
-  sensitive payload. Unexamined.
+- [x] **KindredAccess — swept 2026-07-26.** Own logging is **clean**: all 55 `core/` call sites log
+  identifiers, never content, and `photo_moderation.py:274` already uses `type(exc).__name__` over
+  `str(exc)`. The gap is Sentry: `send_default_pii=False` is set but `include_local_variables` is
+  unset (SDK default on, independent setting), and `LoggingIntegration(event_level='ERROR')`
+  promotes every `logger.error`/`exception` to an event. `core/consumers.py:553-563` binds `body`
+  two lines above a `logger.exception` in the message-create path → a DB error while sending a chat
+  message serializes the **message body** to Sentry. **Worse-positioned than BN's**, which needed an
+  unhandled exception to reach Sentry at all. Filed in
+  [KA `docs/audits/LOG_PII_SENTRY_AUDIT_2026-07-26.md`](../../../kindredaccess_files/docs/audits/LOG_PII_SENTRY_AUDIT_2026-07-26.md).
+  *Pass carries no test/dependency signal — both declined as writes under a read-only budget.*
+
+> **Pattern across two apps now: the leak is never the log statement.** BN and KA both write
+> disciplined log calls and both ship frame locals to Sentry with `send_default_pii=False` set and
+> `include_local_variables` unset. Treat that pair as a single portfolio-wide config defect, and
+> check it in every app with error reporting before auditing its log statements.
 - [ ] ⬜ **Disability Wiki** — 16 log call sites, no redaction layer. Unexamined.
 - [ ] ⬜ **page-repair** — 5 log call sites, no redaction layer. Worker fronting Claude with a KV +
   Durable Object credit ledger; check for page content and token/credit identifiers in logs. Unexamined.
