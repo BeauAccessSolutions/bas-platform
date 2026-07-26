@@ -187,6 +187,9 @@ Decide file-or-fix. None are the fixed ones.
   Verified by reproducing the bug in a browser — patched `fetch` so the first save reached the
   server and the reply was lost, then pressed Save again: one row where there would have been two —
   plus 10 real-Postgres cases including the concurrent-duplicate race.
+  ✅ **Live**: deployment `d6c9bf2d` ACTIVE 2026-07-26 22:5xZ, `/api/health` 200. This one carried a
+  schema migration, applied by the app's `PRE_DEPLOY` job (`.do/app.yaml:50-59`) — a failed migrate
+  fails the deploy, so ACTIVE is real evidence it ran, not an inference from the health check.
 - [ ] **C3** — 24h absolute session, no idle timeout (`SESS-05`). At the AAL2 ceiling; add idle only **after C1 ships** (it now has, #72).
 - [ ] **C5** — no auth-event history (login/password-change/export/session-terminate). The narrow, applicable slice of `AUDIT-01` for a single-user app.
 
