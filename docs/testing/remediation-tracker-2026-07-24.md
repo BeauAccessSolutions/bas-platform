@@ -247,12 +247,28 @@ went ACTIVE 22:06Z with `/api/health` 200:
 - [x] ✅ **X1** content under status bar → fixed ×4 (§0).
 - [ ] 🟡 **X2/X3** error states & data loss: KA send-failure (#20) and CIT drafts (#72) done; **not done** —
   the shared error-state component (real message + preserved input + working recovery + `role="alert"`),
-  Atlas CSRF blank error page, CIT sign-in error screen, and **KA sign-out-mid-compose** (the composer is
+  Atlas CSRF blank error page, and **KA sign-out-mid-compose** (the composer is
   still the only copy of un-sent text at logout — #20 covers send, not this).
+  **CIT's sign-in error screen is done** ([#84](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/84)):
+  real message, both fields preserved, the unverified case offers the resend control inside the same
+  announced region — and never parks that control in the tab order for people not in that state.
 - [ ] **X4** internal copy leaking to users: KA Jinja comment renders as body text; Atlas design-rationale
   copy; BN raw markdown (same as BN #1 below). Grep each codebase for developer commentary in user strings.
 - [ ] **X5** header/nav bloat (all four) — collapse to hamburger/bottom-tab below a breakpoint; shorten wordmarks.
+  **CIT done** ([#85](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/85)): it already
+  collapsed to a hamburger under `md`, so only the wordmark was outstanding — phones now show the
+  `shortName` already shipped for the iOS home-screen icon. Worth carrying to the other three: the argument
+  that decided it was not bar space but that **a phone screen is read by more people than its owner**, and
+  "Chronic" tells a waiting room less than "Chronic Illness Tracker". KA/BN/Atlas still open.
 - [ ] **X6** screen-reader announcement of errors — audit; ensure `role="alert"`/`aria-live` on error paths.
+  **CIT done** ([#84](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/84)) — and the
+  finding is more specific than the item reads. The regions *had* `role="alert"`; they were written
+  `{error && <p role="alert">{error}</p>}`, so the region and its text were created in the same instant,
+  which is **silent** to a screen reader. Auditing for the attribute would have passed all 15 of them.
+  Grep the other three for that shape, not for missing roles. A source-scanning test now guards CIT's.
+  Two things axe found that reading did not: `autocomplete="username email"` is invalid (one field name,
+  not two) so password managers had stopped filling — check the other apps' login forms — and an error
+  boundary that replaces the page in place announces nothing, because no navigation happens.
 - [ ] **X7** KA icon-only controls without accessible names (green dot, dark dot, ⋮, ✓) — `aria-label` + legend.
 
 **VA Benefits Navigator** (confirmed against screenshots):
