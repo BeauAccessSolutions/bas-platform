@@ -191,7 +191,15 @@ Decide file-or-fix. None are the fixed ones.
   schema migration, applied by the app's `PRE_DEPLOY` job (`.do/app.yaml:50-59`) — a failed migrate
   fails the deploy, so ACTIVE is real evidence it ran, not an inference from the health check.
 - [ ] **C3** — 24h absolute session, no idle timeout (`SESS-05`). At the AAL2 ceiling; add idle only **after C1 ships** (it now has, #72).
-- [ ] **C5** — no auth-event history (login/password-change/export/session-terminate). The narrow, applicable slice of `AUDIT-01` for a single-user app.
+- [x] **C5** — no auth-event history → **[CIT#83](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/83)**.
+  `AuthEvent` records sign-in (password and platform), failed sign-in, password change, session
+  ended, other sessions ended, export created — and **the account can read its own history** in
+  Settings → Security, which is the half that makes it useful rather than merely compliant ("was
+  that export me?"). Three constraints worth carrying to other apps: a failed sign-in is recorded
+  **only against an account that exists** (otherwise the log becomes the enumeration artifact the
+  signup flow is designed not to leak); recording **never throws**, so it cannot fail the operation
+  it observes; 90-day retention **swept on write**, not by a scheduled job — this repo already has
+  two crons that no-op until their secrets are set, and a third would have been three.
 
 **Chronic Illness Tracker — closed 2026-07-26** (acute-capture audit + the Codex check-in findings;
 all four merged to `main` the same session, each with a real-Postgres or browser check, not just a
