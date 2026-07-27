@@ -223,7 +223,25 @@ went ACTIVE 22:06Z with `/api/health` 200:
   non-PHI.
 - **Not covered:** C2/C3/C5 above are untouched, and F-3/F-4/F-5/F-6 are native (`bas-apps`), not web.
 
-**Chronic Illness Tracker (native, `bas-apps`)**:
+**Chronic Illness Tracker (native, `bas-apps`)** — all three PRs merged to `master` 2026-07-27,
+CI green on each:
+- [x] **F-6 — the app had no test suite at all** → [bas-apps#5](https://github.com/BeauAccessSolutions/bas-apps/pull/5).
+  `jest-expo` + `@testing-library/react-native`, 50 tests, and **the monorepo's first CI**
+  (typecheck + lint + test on every push and PR — there was none). This is the item that made the
+  others checkable: F-3/F-5 can now be fixed with a regression test attached.
+  Two facts that cost an hour each and are now in the repo README: **RTL v14's `render` is async**
+  (without the await nothing mounts and every query throws "`render` function has not been called",
+  which reads like a broken config), and React 19 renders through `act` only when
+  `IS_REACT_ACT_ENVIRONMENT` is set.
+  **Method note worth reusing:** each screen test was checked by re-introducing the defect it
+  describes. That found a test that could not fail — the "typing accumulates" case passes even with
+  the keystroke bug restored, because the symptom needs a real navigator — so it is now labelled a
+  sanity check, and the header-identity test is named as the actual guard. Do this before trusting
+  any new suite.
+- [x] **F-4 — no idempotency key on native saves** → [bas-apps#4](https://github.com/BeauAccessSolutions/bas-apps/pull/4),
+  the client half of CIT #82. Merged *with* the regression tests it originally lacked (added once #5
+  landed): the header is sent when supplied and omitted entirely when not, and the key holds across
+  a retry, changes after success, and matches the backend's `KEY_PATTERN`.
 - [x] Bottom tab bar had **no icons at all** (five labels in a row) → [bas-apps#3](https://github.com/BeauAccessSolutions/bas-apps/pull/3),
   Ionicons, outline/filled for active state, labels kept. Reported as "upside down triangles" on
   TestFlight; **that symptom was never reproduced from source** — expo-router 57's `Tabs` is the JS
