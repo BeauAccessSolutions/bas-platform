@@ -242,6 +242,21 @@ CI green on each:
   the client half of CIT #82. Merged *with* the regression tests it originally lacked (added once #5
   landed): the header is sent when supplied and omitted entirely when not, and the key holds across
   a retry, changes after success, and matches the backend's `KEY_PATTERN`.
+- [x] **F-3 — review could not tell an acute capture from an ordinary symptom** and
+  **F-5 — nothing announced to a screen reader** → [bas-apps#6](https://github.com/BeauAccessSolutions/bas-apps/pull/6).
+  F-3 was a *parity regression*: an acute capture has no severity and no notes, so its row rendered
+  bare — the same symptom flagged mid-reaction and logged calmly hours later read identically, at
+  the one place someone reads their own history back. Marked with a **word**, not a tint, so it
+  survives being read aloud (WCAG 1.4.1).
+  **Divergence to settle in the design pass:** web tints this `warning`; the native palette has no
+  warning token, and inventing one means proving ≥4.5:1 against `card` in both themes, so `primary`
+  (already contrast-checked, reads as emphasis not alarm) was used instead of a guessed hex.
+  F-5's mechanism is worth carrying to any RN app: **`accessibilityRole="alert"` marks a trait and
+  does NOT speak** — unlike the web's `role="alert"` in a live region. Announcing is an explicit
+  `AccessibilityInfo` call, needs a delay (an announcement during a navigation transition is
+  swallowed on iOS), and should queue on iOS so an error cannot truncate a save. Applied to all
+  five entry screens, not just the audited one.
+  Both mutation-checked: reverting either fails 6 of 16 tests — possible only because F-6 landed first.
 - [x] Bottom tab bar had **no icons at all** (five labels in a row) → [bas-apps#3](https://github.com/BeauAccessSolutions/bas-apps/pull/3),
   Ionicons, outline/filled for active state, labels kept. Reported as "upside down triangles" on
   TestFlight; **that symptom was never reproduced from source** — expo-router 57's `Tabs` is the JS
