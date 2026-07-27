@@ -262,7 +262,12 @@ CI green on each:
   TestFlight; **that symptom was never reproduced from source** — expo-router 57's `Tabs` is the JS
   navigator and renders `null` for an undefined icon, so this adds icons where there were none. If
   triangles survive the next EAS build, they are something else and need a screenshot.
-  Reaches TestFlight only via an **EAS build** — it ships font assets, so an OTA update will not carry it.
+  ~~Reaches TestFlight only via an **EAS build** — it ships font assets, so an OTA update will not
+  carry it.~~ **Wrong, corrected 2026-07-27.** `expo` already depends on `expo-font`, and it was in
+  the lockfile before the icon change — so that native module is in the installed build, and
+  `@expo/vector-icons` adds only JS plus font assets, which `expo-updates` delivers. **The icons can
+  ship over the air.** The rule to apply is "new *native code* needs a build", not "new assets do";
+  check whether the native module is already present before assuming a rebuild.
 
 **Access Atlas** ([audit](access-atlas-blocker-audit-2026-07-23.md)):
 - [ ] **A1** — 30-day sessions at the AAL1 ceiling; complicated by the access-identity (disability) tag. AAL/counsel call — see P1.
