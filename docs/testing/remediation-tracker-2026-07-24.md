@@ -190,7 +190,21 @@ Decide file-or-fix. None are the fixed ones.
   ✅ **Live**: deployment `d6c9bf2d` ACTIVE 2026-07-26 22:5xZ, `/api/health` 200. This one carried a
   schema migration, applied by the app's `PRE_DEPLOY` job (`.do/app.yaml:50-59`) — a failed migrate
   fails the deploy, so ACTIVE is real evidence it ran, not an inference from the health check.
-- [ ] **C3** — 24h absolute session, no idle timeout (`SESS-05`). At the AAL2 ceiling; add idle only **after C1 ships** (it now has, #72).
+- [x] **C3** — 24h absolute session, no idle timeout (`SESS-05`) → **[CIT#82…#86](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/86)
+  merged and LIVE 2026-07-27** (deployment `0ec0c16c` ACTIVE, `/api/health` 200; the migration ran
+  in the pre-deploy job, so ACTIVE is evidence it applied).
+  **8h idle on top of the unchanged 24h absolute — not the 1h the guidance suggests.** Zach's call,
+  and the reasoning generalises to the other apps: pick the number from how the app is *used*, not
+  only from the AAL. CIT is opened in bursts across a day (morning doses, a symptom at lunch, the
+  evening check-in), so an hourly window would demand a password several times daily from someone
+  unwell — the friction the app exists to remove. Recorded beside the constant so nobody tightens it
+  without meeting the argument.
+  Implementation details worth copying: `lastSeenAt` defaults to `now()` so the deploy signs nobody
+  out; it is refreshed at most once per 5 min (validation runs on every authenticated render, and a
+  write per request buys minutes of precision on an 8h window); an idled-out row is **deleted**, not
+  just rejected. The sign-in screen now says why you are there and that drafts survived.
+  **This closes the CIT third of the platform P1 session-timeout item** — KA F3 and AA A1 remain,
+  and the matrix entry is still `status: proposed`.
 - [x] **C5** — no auth-event history → **[CIT#83](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/83)**.
   `AuthEvent` records sign-in (password and platform), failed sign-in, password change, session
   ended, other sessions ended, export created — and **the account can read its own history** in
