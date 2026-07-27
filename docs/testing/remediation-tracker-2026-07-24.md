@@ -252,6 +252,10 @@ went ACTIVE 22:06Z with `/api/health` 200:
   **CIT's sign-in error screen is done** ([#84](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/84)):
   real message, both fields preserved, the unverified case offers the resend control inside the same
   announced region — and never parks that control in the tab order for people not in that state.
+> **CIT's §4 items are done and live** — deployment `b8229860` (commit `aca68ab`, containing #84 and
+> #85) went ACTIVE 2026-07-27 with `/api/health` 200. X4 and X7 were never CIT findings; X1 closed in
+> §0. So §4 now holds nothing for CIT: what remains here is KA, BN and Atlas.
+
 - [ ] **X4** internal copy leaking to users: KA Jinja comment renders as body text; Atlas design-rationale
   copy; BN raw markdown (same as BN #1 below). Grep each codebase for developer commentary in user strings.
 - [ ] **X5** header/nav bloat (all four) — collapse to hamburger/bottom-tab below a breakpoint; shorten wordmarks.
