@@ -282,6 +282,13 @@ CI green on each:
   `@expo/vector-icons` adds only JS plus font assets, which `expo-updates` delivers. **The icons can
   ship over the air.** The rule to apply is "new *native code* needs a build", not "new assets do";
   check whether the native module is already present before assuming a rebuild.
+  **Shipped by OTA 2026-07-27** (update group `c4c2dddd`, branch/channel `production`, runtime
+  1.0.0 — matching build 22) together with F-3, F-4 and F-5. Verified rather than assumed: the CLI
+  printed "Uploading assets skipped - no new assets found", which reads like the font was omitted,
+  but `dist/assetmap.json` for the published group lists `Ionicons.ttf` — EAS had simply seen those
+  hashes before. Check the assetmap, not the upload line.
+  ⏳ **Not yet confirmed on device:** whether the icons render, and whether the reported "upside
+  down triangles" are gone (that symptom was never reproduced from source).
 
 **Access Atlas** ([audit](access-atlas-blocker-audit-2026-07-23.md)):
 - [ ] **A1** — 30-day sessions at the AAL1 ceiling; complicated by the access-identity (disability) tag. AAL/counsel call — see P1.
