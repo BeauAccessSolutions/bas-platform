@@ -314,6 +314,23 @@ CI green on each:
 > **CIT's §4 items are done and live** — deployment `b8229860` (commit `aca68ab`, containing #84 and
 > #85) went ACTIVE 2026-07-27 with `/api/health` 200. X4 and X7 were never CIT findings; X1 closed in
 > §0. So §4 now holds nothing for CIT: what remains here is KA, BN and Atlas.
+>
+> **Reopened the same day (2026-07-27):** X5 turned out not to be closed for CIT — see the amendment
+> under X5. Unshipped work sits on `claude/nice-poincare-1cf130`, pushed, PR not yet opened.
+
+- [ ] 🔴 **CIT web had no sign-out control at all (found 2026-07-27, fix on branch).** Not on any
+  audit list — every list assumed the control existed and asked whether it behaved. `POST
+  /api/auth/logout` worked, was tested, cleared the cookie and (since #83) recorded `SESSION_ENDED`;
+  nothing in `src/**/*.tsx` ever called it, and `nav.logout` sat in the catalog unreferenced. So the
+  only way out of a session was to wait 24h — 8h idle since #86 — which is the exact scenario C3 was
+  raised for. The native app has had sign-out since it shipped, so this read as covered from the
+  platform view. **Detector worth running in KA, BN and Atlas: for every auth/destructive endpoint,
+  grep the client for a call site.** A translated string with no reference is the cheap version of the
+  same check. Fix on `claude/nice-poincare-1cf130`: control in both nav surfaces, clears local drafts
+  (PHI in `localStorage`) only on a confirmed success — the web session is an httpOnly cookie, so
+  unlike native there is no local fallback, and navigating away on a failed request would tell
+  someone they were signed out on a computer where they were not. Sign-out is now covered in
+  `tests/e2e/critical-paths.test.ts` even though CLAUDE.md's list does not name it.
 
 - [ ] **X4** internal copy leaking to users: KA Jinja comment renders as body text; Atlas design-rationale
   copy; BN raw markdown (same as BN #1 below). Grep each codebase for developer commentary in user strings.
@@ -323,6 +340,29 @@ CI green on each:
   `shortName` already shipped for the iOS home-screen icon. Worth carrying to the other three: the argument
   that decided it was not bar space but that **a phone screen is read by more people than its owner**, and
   "Chronic" tells a waiting room less than "Chronic Illness Tracker". KA/BN/Atlas still open.
+  **Amended 2026-07-27 — "collapses under `md`" was true and was the wrong breakpoint.** Adding a
+  sign-out control (below) put the CIT bar over capacity between 768 and ~878px: the wordmark,
+  "Reaction now", "Check-in" and "Sign out" all broke onto two lines. Measured rather than eyeballed,
+  and the measurement is the point — **the threshold is language-dependent.** English needed 808px;
+  the same bar with the Spanish catalog needed ~910px, because "Configuración" and "Cerrar sesión"
+  are half again as long. Every locale would have had its own broken range, and the fix that looks
+  obvious — tighten the padding — is bounded by the 44px target floor ("Log" is already at it). CIT's
+  laid-out nav now starts at `lg` and everything below it lives in the menu, on branch
+  `claude/nice-poincare-1cf130` (PR not yet opened).
+  Four things to carry to KA/BN/Atlas when their turn comes:
+  1. **Measure the wrap threshold in a browser, in the longest target language, not English.** A
+     breakpoint chosen against English ships a broken bar in every other locale. Method that worked:
+     resize the real viewport and count `Range.getClientRects().length` per label — shrinking a
+     container's `max-width` to simulate a narrow screen does **not** re-evaluate media queries and
+     gives a confidently wrong number.
+  2. **Exempt the emergency path from the collapse.** CIT keeps acute capture in the bar at every
+     width; only ordinary destinations moved behind the menu. Whatever the equivalent is per app
+     (KA's report control, BN's assistant), it should not gain a tap.
+  3. **Assert the toggle and the laid-out nav are exact complements** (`lg:hidden` / `lg:flex`). Drift
+     between them opens a width with no way to reach anything, and nothing else catches it.
+  4. **Give translators a label length budget in the brief**, not a bug report later. CIT's is in
+     `locales/TRANSLATION_NOTES.md`: ~55 characters for the six nav labels plus sign-out (English 42,
+     Spanish 54), because at `lg` the bar is capped at 1024px and Spanish already wants ~1035px of it.
 - [ ] **X6** screen-reader announcement of errors — audit; ensure `role="alert"`/`aria-live` on error paths.
   **CIT done** ([#84](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/84)) — and the
   finding is more specific than the item reads. The regions *had* `role="alert"`; they were written
