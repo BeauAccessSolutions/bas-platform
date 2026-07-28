@@ -28,6 +28,20 @@ here is what that table can't hold: how each one actually broke, and where it is
 Gates audited 2026-07-18 by reading the tests; **partials marked**. CIT included (it is checked out at
 `~/Chronic-Illness-Tracker`, not under `~/projects/`).
 
+- **"It ships assets, so it needs a native build" is wrong, and it nearly bought a subscription to
+  fix a non-problem.** Adding `@expo/vector-icons` to CIT/Baseline, I asserted in a PR body, the
+  remediation tracker and project memory that the tab icons could only reach TestFlight via an EAS
+  build because they ship font assets — then the free iOS build quota ran out and the question became
+  whether to pay $19 to unblock it. The premise was false: `expo` already depends on `expo-font`, and
+  that dependency predated the change, so the native module was in the installed build; the package
+  adds only JS plus a `.ttf`, and `expo-updates` delivers assets. The whole set of pending native
+  fixes went out over the air for nothing. → The rule is **new native *code* needs a build; new
+  assets do not** — before assuming a rebuild, check whether the native module the asset needs is
+  already in the shipped build (`git show <pre-change-ref>:pnpm-lock.yaml | grep <module>`). And
+  verify the publish afterwards from `dist/assetmap.json`, not the CLI's summary line: `eas update`
+  prints "Uploading assets skipped - no new assets found" when it has merely seen those hashes
+  before, which reads exactly like the asset was omitted. (bas-apps / CIT, 2026-07-27)
+
 - **C1 — live-region spine.** page-repair routed labeling errors, extension errors and clipboard
   failures through the same polite `role="status"` region as the success summary, so a failure queued
   behind the user's current utterance or was missed if they'd navigated on (SC 4.1.3). *Enforced:*
