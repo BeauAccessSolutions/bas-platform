@@ -2,15 +2,23 @@
 
 **What this is:** transferable mistakes and hard-won lessons that recur **across Beau Access
 Solutions apps** but nowhere else — the shared `packages/ui` design system, the Keycloak login
-theme + OIDC integration, the §4 accessibility spine, mobile-wrapper patterns, and cross-app
-safety conventions. `@import`ed only by BAS app repos' `CLAUDE.md` (alongside the machine-wide
-`~/.claude/shared/LESSONS.md`).
+theme + OIDC integration, the §4 accessibility spine, the Django backends, native wrappers, and
+cross-app safety conventions. `@import`ed only by BAS app repos' `CLAUDE.md` (alongside the
+machine-wide `~/.claude/shared/LESSONS.md`).
 
 **Scope rule:** a lesson belongs here only if *another BAS app would make the same mistake* and
 a non-BAS project would not. Truly universal lessons go in `~/.claude/shared/LESSONS.md`;
-single-app facts go in that app's own `CLAUDE.md` or memory. Prune if this grows past ~1 page
-(**~85 lines**) — it is a narrower file than the machine-wide one (budget ~200), so it earns a
-tighter ceiling.
+single-app facts go in that app's own `CLAUDE.md` or memory.
+
+**Budget: ~95 entry-lines** (header + generated index sit on top). It was "~1 page / ~85" while
+only four repos imported this file; as of 2026-07-29 **eight** do — a11y-probe, Access Atlas
+(`access-directory/`), bas-website (`beau-access-solutions/`), BN, CIT, Disability Wiki,
+KindredAccess, page-repair — and it absorbed the BAS-only Django / native-wrapper / DO-hosting
+clusters that were taxing all 19 repos from the machine-wide file. **That intake was paid for by
+pruning, not by raising a ceiling: the file did not grow** (96 → 96 entry-lines, 8 → 15 entries).
+The real gate is `~/.claude/hooks/pre-commit-lessons-nogrowth.sh` — no commit may grow a LESSONS.md,
+at any size. After any change run `python3 ~/.claude/skills/prune-lessons/build_index.py LESSONS.md`;
+the index below is **generated — never hand-edit it**.
 
 **Governing doc:** [`docs/design-principles.md`](docs/design-principles.md) — the UX/a11y standard
 these lessons defend. When a lesson hardens into a reusable primitive, graduate it into
@@ -20,116 +28,156 @@ Format per entry: **Lesson** — what broke → the fix. `(source-app, YYYY-MM-D
 
 ---
 
+<!-- INDEX:START -->
+## Index — every lesson in one line
+
+*`[G]` enforced machine-wide (entry is just a pointer) · `[T]` regression-tested in one repo (rule still applies elsewhere) · `[!]` a sub-claim is still unguarded.*
+
+**Accessibility spine & shared UI**
+- New native *code* needs a build; new *assets* do not
+- C1 — how it broke, twice
+- C2 — how it broke
+- C3 — how it broke
+- C4 — a token-hex contrast sweep has three blind spots
+
+**Django backends (BN + KindredAccess)**
+- Django ModelForm validation mutates the passed instance in place `[T]`
+- Django's test `Client` in `manage.py shell` 400s on everything unless you pass a host in ALLO…
+- Django's `{{ x|default:y.z }}` 500s instead of falling back when `y` is `None` `[T]`
+- A fix that makes a configured backend "actually apply" applies in *every* environment — inclu… `[G]`
+
+**Identity, OIDC, native wrappers & hosting**
+- Changing the shared IdP host silently strands every native wrapper — and each wrapper tech hi…
+- BAS realm client IDs are NOT uniformly suffixed — infer one and you'll wire an app to a clien…
+- iOS safe-area CSS is doubly inert by default — and `env()` padding can't fix a scrolled overlap
+- Webview-wrapper bugs share one signature: "works in a browser, broken only on-device" — a web…
+- iOS TestFlight uploads from this Mac: archive UNSIGNED, sign at export — and only App Store C…
+- Guessing DNS names is not a domain inventory — read the hosting platform's own config (`doctl…
+
+<!-- INDEX:END -->
+
 ## Accessibility spine & shared UI
 
-The **normative contracts and their gates are C1–C4** in
-[`docs/design-principles.md` §4.1](docs/design-principles.md) — read those for what to *do*. Kept
-here is what that table can't hold: how each one actually broke, and where it is still unenforced.
-Gates audited 2026-07-18 by reading the tests; **partials marked**. CIT included (it is checked out at
-`~/Chronic-Illness-Tracker`, not under `~/projects/`).
+**Read [`docs/design-principles.md` §4.1](docs/design-principles.md) first** — it holds the four
+normative contracts C1–C4 *and* the per-app gate inventory (which app is enforced, partial, or
+unenforced, with test paths). That inventory used to be duplicated here; §4.1's is sharper and stays
+current, so it was deduped out on 2026-07-29. What's kept below is what §4.1 can't hold: **how each
+contract actually broke**, and the sweep techniques no contract row covers.
 
-- **"It ships assets, so it needs a native build" is wrong, and it nearly bought a subscription to
-  fix a non-problem.** Adding `@expo/vector-icons` to CIT/Baseline, I asserted in a PR body, the
-  remediation tracker and project memory that the tab icons could only reach TestFlight via an EAS
-  build because they ship font assets — then the free iOS build quota ran out and the question became
-  whether to pay $19 to unblock it. The premise was false: `expo` already depends on `expo-font`, and
-  that dependency predated the change, so the native module was in the installed build; the package
-  adds only JS plus a `.ttf`, and `expo-updates` delivers assets. The whole set of pending native
-  fixes went out over the air for nothing. → The rule is **new native *code* needs a build; new
-  assets do not** — before assuming a rebuild, check whether the native module the asset needs is
-  already in the shipped build (`git show <pre-change-ref>:pnpm-lock.yaml | grep <module>`). And
-  verify the publish afterwards from `dist/assetmap.json`, not the CLI's summary line: `eas update`
-  prints "Uploading assets skipped - no new assets found" when it has merely seen those hashes
-  before, which reads exactly like the asset was omitted. (bas-apps / CIT, 2026-07-27)
+- **New native *code* needs a build; new *assets* do not.** Adding `@expo/vector-icons` to CIT/Baseline
+  I asserted — in a PR body, the remediation tracker and project memory — that the tab icons could only
+  reach TestFlight via an EAS build because they ship a `.ttf`. False: `expo` already depended on
+  `expo-font` before the change, so the native module was in the shipped build and `expo-updates`
+  delivers assets; everything pending went out over the air. → Check the needed native module is already
+  shipped (`git show <pre-change-ref>:pnpm-lock.yaml | grep <module>`), and verify the publish from
+  `dist/assetmap.json`, not the CLI: `eas update` prints "Uploading assets skipped - no new assets found"
+  when it has merely seen those hashes, which reads exactly like an omitted asset. (bas-apps/CIT, 2026-07-27)
 
-- **C1 — live-region spine.** page-repair routed labeling errors, extension errors and clipboard
+- **C1 — how it broke, twice.** page-repair routed labeling errors, extension errors and clipboard
   failures through the same polite `role="status"` region as the success summary, so a failure queued
-  behind the user's current utterance or was missed if they'd navigated on (SC 4.1.3). *Enforced:*
-  page-repair `test/unit.mjs` drives the real content script and asserts both regions exist **before**
-  any message, failures land assertive, progress stays polite — CI-gated. BN is more complete still
-  (`tests/test_assistant_template.py` + `tests/js/assistant.a11y.test.mjs`); KindredAccess has only the
-  markup half — no routing test, so the bug C1 exists to catch is untested there. *Unenforced:* Access
-  Atlas, Disability Wiki, CIT (verified: no live-region test in `tests/unit/`). (page-repair, 2026-07-13)
-  **Fix the shared primitive, not just the instances.** CIT had already hand-fixed `SymptomForm` and
-  `CheckInForm` (permanently-mounted region, polite/assertive split) — each carrying a comment
-  explaining exactly why — but `ApiForm`, the primitive **8 other entry forms delegate to** (cycle,
-  energy, exposure, food, note, PRN, sleep, stress), still rendered its region conditionally
-  (`{message && <p role="status">}`) and routed success + failure through one polite node. So the
-  defect read as "known and fixed" while most surfaces still failed silently. When a spine fix lands
-  on a hand-written component, grep for the shared form/status primitive and check it has the same
-  shape. Fixed 2026-07-19 (CIT PR #44); the code is now correct but still lacks the routing test that
-  would gate it — and the `color-scheme` half of C4 now *is* gated (`a11y-css.test.ts`, verified to
-  fail without the declaration). (chronic-illness-tracker, 2026-07-19)
+  behind the user's current utterance or was missed entirely (SC 4.1.3). Then, in CIT: **fix the shared
+  primitive, not just the instances.** `SymptomForm` and `CheckInForm` had been hand-fixed while
+  `ApiForm` — the primitive **8 other entry forms delegate to** — still rendered its region conditionally
+  and routed success + failure through one polite node, so the defect read as "known and fixed" while
+  most surfaces still failed silently. → When a spine fix lands on a hand-written component, grep for the
+  shared form/status primitive and check it has the same shape. (page-repair + CIT, 2026-07-13/19)
 
-- **C2 — streaming announce + focus.** BN's assistant re-announced its response region on every
-  streamed token (machine-gunning the screen reader), and the assertive *error* announce left focus
-  stranded on the now-removed "Stop generating" button. *Enforced:* the inline template script was
-  extracted to `static/js/assistant.js` so it could be tested — `tests/js/assistant.a11y.test.mjs`
-  pumps 200 deltas, asserts via MutationObserver that the polite region never changes, and checks focus
-  lands on the answer / recovery control; CI as `npm run test:js`. ⚠️ `tests/e2e` is **excluded** from
-  BN's pytest run, so a Playwright test there gates nothing. *Unenforced:* KindredAccess's chat
-  surface. (benefits-navigator, 2026-07-13)
+- **C2 — how it broke.** BN's assistant re-announced its response region on every streamed token
+  (machine-gunning the screen reader), and the assertive *error* announce left focus stranded on the
+  now-removed "Stop generating" button. The gate only became possible once the inline template script
+  was **extracted** to `static/js/assistant.js` — an inline `<script>` is untestable. ⚠️ And BN's pytest
+  run **excludes** `tests/e2e`, so a Playwright test parked there gates nothing. (benefits-navigator, 2026-07-13)
 
-- **C3 — double-read.** KindredAccess added a single `ChatStatusAnnouncer` but left
-  `role="status"`/`aria-live` on the visible typing/connection/presence nodes, so every change was
-  read twice — the design review caught the spec reproducing the very double-read it set out to
-  kill. Same trap for a `role="log"` transcript that already voices incoming messages.
-  *Enforced:* KindredAccess `test_visible_status_nodes_are_at_silent`, shipped with the fix in
-  `1b3506c` — but a regex over three named node ids, blind to a fourth indicator, nested regions, or
-  `role="log"`. page-repair's is structural, but guards a surface whose announcer only writes into
-  hidden regions — regression gate, not a fix. *Unenforced:* BN, CIT.
-  (kindredaccess, 2026-07-13; page-repair gate, 2026-07-18)
+- **C3 — how it broke.** KindredAccess added a single `ChatStatusAnnouncer` but left
+  `role="status"`/`aria-live` on the visible typing/connection/presence nodes, so every change was read
+  twice — the design review caught the *spec* reproducing the very double-read it set out to kill. Same
+  trap for a `role="log"` transcript that already voices incoming messages. Note KA's gate is a regex
+  over three named node ids: blind to a fourth indicator, nested regions, or `role="log"`. (kindredaccess, 2026-07-13)
 
-- **C4 — color-scheme + contrast.** page-repair's options page declared no `color-scheme`, so contrast
-  held in light but was unverified in dark (a `kbd` border was sub-3:1 even in light). *Enforced:*
-  page-repair `test/contrast.mjs` recomputes every pair from the token hexes in both themes,
-  fail-closed. *Partial:* KindredAccess (two hardcoded 3:1 spot-checks); CIT `a11y-css.test.ts` (both
-  themes, but not the `color-scheme` declaration). *Unenforced:* `packages/ui`, Keycloak theme, BN
-  (declares `color-scheme`, asserts nothing). (page-repair, 2026-07-13)
-  **A token-hex sweep has three blind spots — all found on bas-website, all now gated by its
-  `test/contrast.mjs` (36 pairs × 2 themes, wired into the build command so a regression can't
-  publish):** (a) a token *used but never defined* emits no CSS and fails silently — scan that every
-  `text-|bg-|border-<family>-<step>` resolves to a `--color-` var; (b) `/opacity` backgrounds are
-  distinct pairs — alpha-composite before comparing (body text hit 3.93:1 on a 30% tint, clean on
-  white); (c) a second theme audits the *pair list itself* — adding dark mode surfaced a light-theme
-  logo failure (3.98:1) two prior sweeps had missed, because a sweep only checks pairs someone
-  listed. Corollary: **half a theme is worse than none** — migrate raw `text-gray-*`/`bg-white` to a
-  semantic layer (canvas/surface/ink/…/on-accent) first, or dark mode leaves half the page light;
-  `text-white` on a button is the specific killer (in dark the accent lightens, its label must go
-  near-black). (bas-website, 2026-07-18/19)
+- **C4 — a token-hex contrast sweep has three blind spots.** page-repair's options page declared no
+  `color-scheme` at all, so its dark theme was never verified; but even a token sweep misses three
+  things, all found on bas-website and now gated by its `test/contrast.mjs` (both themes, wired into the
+  build command so a regression can't publish): (a) a token *used but never defined* emits no CSS and
+  fails silently — scan that every `text-|bg-|border-<family>-<step>` resolves to a `--color-` var; (b)
+  `/opacity` backgrounds are distinct pairs — alpha-composite before comparing (body text was clean on
+  white, 3.93:1 on a 30% tint); (c) a sweep only checks pairs someone listed, so a second theme audits
+  the *pair list itself* — dark mode surfaced a light-theme logo failure two prior sweeps had missed.
+  Corollary: **half a theme is worse than none** — migrate raw `text-gray-*`/`bg-white` to a semantic
+  layer (canvas/surface/ink/…/on-accent) first, or dark mode leaves half the page light; `text-white` on a
+  button is the killer (in dark the accent lightens, its label must go near-black). (bas-website, 2026-07-13/19)
 
-## Identity, OIDC & mobile wrappers
+## Django backends (BN + KindredAccess)
+
+Both BAS Django apps repeat each other's mistakes, and no non-BAS project on this machine runs Django —
+so these sat in the machine-wide file taxing 19 repos for nothing. Relocated 2026-07-29.
+
+- **Django ModelForm validation mutates the passed instance in place.** Reading "old" values *after*
+  `form.is_valid()` sees the new values, so `if old != new` branches silently never fire (availability
+  history + match notifications were dead code). → Capture prior values *before* binding, and test the
+  change-detection branch, not just the save. *Tested:* KA `test_views.py::StatusChangeNotificationTest`.
+  (kindredaccess, 2026-07-13)
+
+- **Django's test `Client` in `manage.py shell` 400s on everything unless you pass a host in
+  ALLOWED_HOSTS.** `testserver` is auto-added by the *test runner's* setup, not a plain shell — so a
+  uniform 400 reads as "the whole page is broken" and sends you hunting a template/view bug. → Pass
+  `SERVER_NAME="localhost"` to the Client and each request, or drive it under the test runner. (BN, 2026-07-13)
+
+- **Django's `{{ x|default:y.z }}` 500s instead of falling back when `y` is `None`.**
+  `FilterExpression.resolve()` guards the *primary* variable but resolves filter **arguments** with a
+  bare `arg.resolve(context)`, so the exception propagates uncaught — it reached 3 templates before
+  anyone caught it. → Never chain `|default:some.nullable.attr.chain`; guard with `{% if %}` or
+  precompute in the view. *Tested:* include a null-FK case in template render tests. (BN, 2026-07-22)
+
+- **A fix that makes a configured backend "actually apply" applies in *every* environment — including
+  tests.** Moving Django's staticfiles backend into `STORAGES` activated whitenoise's manifest storage,
+  which resolves `{% static %}` through a manifest test runs lack → every page-render test 500'd, reading
+  like a view bug. → When enabling a previously-inert setting, enumerate the environments it now reaches
+  ("configured" ≠ "exercised"); fix by satisfying the requirement, not disabling it untested.
+  *Gate graduated:* BN `Dockerfile.prod` + `core/tests.py`. (benefits-navigator, 2026-07-23/24)
+
+## Identity, OIDC, native wrappers & hosting
 
 - **Changing the shared IdP host silently strands every native wrapper — and each wrapper tech hides
-  the host in a different place.** Migrating Keycloak to `id.beauaccesssolutions.com` was a one-line
-  env change for the web apps, but three native surfaces had the old host baked in and would have
-  bounced in-app login to Safari or blocked it: Access Atlas's Capacitor `server.allowNavigation`;
-  KindredAccess with **no** `allowNavigation` *and* `WKAppBoundDomains` locked to its own domain under
-  `limitsNavigationsToAppBoundDomains: true`; and CIT/Baseline baking `EXPO_PUBLIC_KEYCLOAK_ISSUER`
-  into `eas.json` at **build** time. A green web `/oidc/…` redirect proves nothing about any of them.
-  → Treat any issuer change as a **native release**: enumerate every wrapper in the same change, and
-  keep the OLD host serving until the replacement builds ship. (bas-platform, 2026-07-17)
+  the host in a different place.** Migrating Keycloak to `id.beauaccesssolutions.com` was a one-line env
+  change for the web apps, but three native surfaces had the old host baked in and would have bounced
+  in-app login to Safari or blocked it: Access Atlas's Capacitor `server.allowNavigation`; KindredAccess
+  with **no** `allowNavigation` *and* `WKAppBoundDomains` locked to its own domain under
+  `limitsNavigationsToAppBoundDomains: true`; and CIT/Baseline baking `EXPO_PUBLIC_KEYCLOAK_ISSUER` into
+  `eas.json` at **build** time. A green web `/oidc/…` redirect proves nothing about any of them. → Treat
+  any issuer change as a **native release**: enumerate every wrapper in the same change, and keep the OLD
+  host serving until the replacement builds ship. (bas-platform, 2026-07-17)
 
-- **BAS realm client IDs are NOT uniformly suffixed — infer one and you'll wire an app to a client
-  that doesn't exist.** The `bas` realm holds `cit-web`, `kindredaccess-web`, `benefits-navigator-web`,
-  `disability-wiki-web` … but `access-atlas` (bare). Setting Disability Wiki's id to `disability-wiki`
-  by analogy pointed it at a nonexistent client: fully configured-looking, failing only at login. →
-  Verify against the realm — no admin creds needed: GET the authorize endpoint with the candidate id
-  and **read the HTTP status, not the page body**: `302` = exists; `400` + "Invalid parameter:
-  redirect_uri" = exists but that redirect isn't registered; `400` + "Client not found" = wrong id.
-  ⚠️ Never discriminate on the themed "Sign in to bas" heading — Keycloak's *error* page carries an
-  identical `<title>`, so grepping for it reports missing clients as present (an earlier draft of this
-  entry recommended exactly that). (bas-platform, 2026-07-17)
+- **BAS realm client IDs are NOT uniformly suffixed — infer one and you'll wire an app to a client that
+  doesn't exist.** The `bas` realm holds `cit-web`, `kindredaccess-web`, `benefits-navigator-web`,
+  `disability-wiki-web` … but `access-atlas` (bare). Setting Disability Wiki's id to `disability-wiki` by
+  analogy pointed it at a nonexistent client: configured-looking, failing only at login. → Verify against
+  the realm, no admin creds needed: GET the authorize endpoint with the candidate id and **read the HTTP
+  status, not the page body** — `302` = exists; `400` + "Invalid parameter: redirect_uri" = exists but
+  that redirect isn't registered; `400` + "Client not found" = wrong id. ⚠️ Never discriminate on the
+  themed "Sign in to bas" heading — Keycloak's *error* page carries an identical `<title>`. (bas-platform, 2026-07-17)
 
 - **iOS safe-area CSS is doubly inert by default — and `env()` padding can't fix a scrolled overlap.**
-  All four BAS apps (each wrapped in Capacitor/PWA on iOS) rendered content under the notch/status bar.
-  Two traps, both bit at once: (1) `env(safe-area-inset-*)` resolves to **0** unless the viewport meta
-  carries `viewport-fit=cover` — so KindredAccess's *existing* `env(safe-area-inset-bottom)` rules were
-  already dead no-ops; (2) `padding-top: env()` on the body/scroll container **scrolls away** with the
-  content, so it can't keep scrolled content clear of the status bar — only a `position:fixed` backdrop
-  strip (or a `sticky` header padded with the inset) stays put over that zone. → For a non-sticky
-  header: `viewport-fit=cover` + a fixed `body::before` strip in the header colour. Sticky header
-  (CIT): pad the header instead — a fixed strip would clip it. And mind the CSP: BN's `style-src 'self'`
-  (no unsafe-inline) forced a linked stylesheet, not an inline block. All gated on `env()`=0 → inert on
-  desktop; **verify on a real notched device** (a simulator's default may not surface the inset).
-  (bas-platform, 2026-07-24)
+  All four BAS apps (Capacitor/PWA on iOS) rendered content under the notch/status bar. Two traps, both
+  bit at once: (1) `env(safe-area-inset-*)` resolves to **0** unless the viewport meta carries
+  `viewport-fit=cover` — so KindredAccess's *existing* inset rules were already dead no-ops; (2)
+  `padding-top: env()` on the body/scroll container **scrolls away** with the content, so only a
+  `position:fixed` backdrop strip (or a `sticky` header padded with the inset) stays put over that zone.
+  → Non-sticky header: `viewport-fit=cover` + a fixed `body::before` strip in the header colour. Sticky
+  header (CIT): pad the header — a fixed strip would clip it. Mind the CSP: BN's `style-src 'self'` forced
+  a linked stylesheet. All inert on desktop (`env()`=0) → **verify on a real notched device**. (bas-platform, 2026-07-24)
+
+- **Webview-wrapper bugs share one signature: "works in a browser, broken only on-device" — a web QA
+  pass can never catch them.** e.g. Capacitor's router answers any extensionless path with `/index.html`
+  (directory links served HOME); `target="_blank"` leaves for Safari (session URL → login); a file input
+  with no `NSCameraUsageDescription` lets iOS terminate the app. → Read the framework's source, don't
+  guess. Checklist: [`docs/webview-wrapper-traps.md`](docs/webview-wrapper-traps.md). (disability-wiki + BN, 2026-07-18)
+
+- **iOS TestFlight uploads from this Mac: archive UNSIGNED, sign at export — and only App Store
+  Connect knows the real build number.** Zero registered devices → a normal archive fails "no devices";
+  archive `CODE_SIGNING_ALLOWED=NO`, `-exportArchive -allowProvisioningUpdates`, bump the build past
+  ASC's not local state. Runbook: [`docs/mobile-and-testflight.md`](docs/mobile-and-testflight.md). (bas-platform, 2026-07-18)
+
+- **Guessing DNS names is not a domain inventory — read the hosting platform's own config (`doctl apps
+  spec get` → `domains:`).** "BN has no prod domain" was wrong: `vabenefitsnavigator.org` was PRIMARY in
+  the spec, and an iOS wrapper shipped baked to the `ondigitalocean.app` URL where Keycloak registers no
+  callback, dead-ending login. → Enumerate from the platform's spec/API; grep the *whole* spec. (bas-platform, 2026-07-18)
