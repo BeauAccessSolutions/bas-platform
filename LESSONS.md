@@ -10,6 +10,20 @@ machine-wide `~/.claude/shared/LESSONS.md`).
 a non-BAS project would not. Truly universal lessons go in `~/.claude/shared/LESSONS.md`;
 single-app facts go in that app's own `CLAUDE.md` or memory.
 
+**Sibling tiers — read one of these if a lesson here feels like it should reach wider.** A lesson
+lives in exactly one tier, chosen by *who would repeat the mistake*, not by who hit it first.
+
+| tier | file | readers | holds |
+|---|---|---|---|
+| machine-wide | `~/.claude/shared/LESSONS.md` | 19 repos | anything any project could repeat: shell/git/tooling, testing method, deploy/CDN, safety, process |
+| **BAS apps** | **this file** | 8 BAS repos | Django (BN/KA), Keycloak/OIDC, `packages/ui`, the §4 a11y spine, native wrappers, DO hosting |
+| Public Ledger | `~/projects/public-ledger/LESSONS.md` | 3 | corpus search, big-DB queries, entity resolution/namesakes, bulk archives, publication gating |
+
+The machine-wide file still holds much that was **learned in a BAS app** because it is not BAS-scoped
+— worktree traps, CDN edge caching, `rg -r`, fail-closed safety, CSP authoring, `pytest -x`, viewport
+measurement, "a green suite proves the module imports". Look there before concluding a trap isn't
+recorded. If something here turns out to apply outside BAS, **promote it rather than copying it.**
+
 **Budget: ~95 entry-lines** (header + generated index sit on top). It was "~1 page / ~85" while
 only four repos imported this file; as of 2026-07-29 **eight** do — a11y-probe, Access Atlas
 (`access-directory/`), bas-website (`beau-access-solutions/`), BN, CIT, Disability Wiki,
