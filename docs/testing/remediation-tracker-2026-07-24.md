@@ -118,6 +118,50 @@ build (≤ build 8) had the wrong issuer baked in. **Fixed by EAS build 9** (`--
 - [ ] **#61** `AUDIT-01` — audit entries carry no acting role, so dual-hat access is unattributable. Add
   `organization`+`role` columns (also enables the `AUDIT-04` anomaly queries).
 
+**KindredAccess** — from the [report/block slice audit](kindredaccess-report-block-audit-2026-07-26.md) (2026-07-26):
+- [ ] **#25** `K-1` — report `description` has no server-side length limit at the form or model layer;
+  `maxlength=2000` is a widget attribute only. *Revised down:* `DATA_UPLOAD_MAX_MEMORY_SIZE` caps the
+  body at 5 MB, so the gap is 2,000 chars advertised vs ~5 MB enforced, not unbounded.
+- [x] ~~**#26** `K-2` — no rate limit on report/block~~ **RETRACTED, closed invalid.**
+  `RateLimitMiddleware` gives `/report/` a dedicated 5-writes-per-minute per-user bucket whose own
+  comment names the urgent-lane threat model. The finding came from grepping `core/views.py` and
+  concluding absence; rate limiting is middleware. Method fix landed in the audit skill.
+
+**KindredAccess — P0s from the parallel Codex audit of the deployed build (2026-07-26), confirmed from source:**
+- [ ] ⬜ **Production dynamic routes returning HTTP 429.** `RATE_LIMIT_TRUSTED_PROXIES` defaults to
+  empty (`settings_production.py:372-374`); behind Nginx over a Unix socket, requests collapse onto
+  one shared bucket. `deploy/README.md:83` warns about this exact configuration. **Availability
+  outage — highest priority in the portfolio right now.**
+- [ ] ⬜ **Protected media delivery broken.** Django emits `X-Accel-Redirect: /internal-media/...`
+  (`media_proxy.py:330`, `settings_production.py:210`) but `deploy/nginx-kindredaccess.conf:71` has
+  no such location — the file literally says *"If you later add X-Accel-Redirect, expose an
+  `internal;` location here."* The app was upgraded; the nginx conf never was. Authorized profile
+  photos, chat images and moderation evidence cannot be served.
+- [ ] ⏳ **NCMEC escalation path unresolved** while public Terms promise CSAM is reported to NCMEC
+  (`core/templates/core/terms.html:159`). Counsel decision, not engineering — see
+  `docs/audits/LAUNCH_DECISIONS_COUNSEL_BRIEF_2026-07-23.md`.
+- [ ] ⬜ **Production lags `main` by four merged fixes** — chat send-acknowledgement, iOS safe area,
+  iOS title, and the **staff-media audit log**. That last one means privileged staff media access is
+  unaudited in production despite the fix being merged. No automated deployment attestation ties
+  production to a tested artifact.
+
+**KindredAccess — remaining P1/P2 from the same Codex audit.** Full record with per-finding
+verification status in [KA `docs/audits/CODEX_AUDIT_2026-07-26.md`](../../../kindredaccess_files/docs/audits/CODEX_AUDIT_2026-07-26.md).
+Not independently re-checked here — treat as leads:
+- [ ] ⬜ **P1** WebSocket messages can be silently lost — deployed client clears an optimistic message
+  with no server ack or idempotency key; the fix is merged and undeployed.
+- [ ] ⬜ **P1** Account export omits received messages, chat images, availability history, consent
+  metadata, profile views, subscription info, read receipts, user-linked analytics, Keycloak linkage.
+- [ ] ⬜ **P1** Deletion vs evidence preservation — open-report evidence held indefinitely with no
+  expiry or access review, against public 30-day deletion language.
+- [ ] ⬜ **P1** Privacy / App Store declarations conflict with behaviour — the checklist says no crash
+  data while Sentry is on (`docs/app-store/APP_PRIVACY_CHECKLIST.md:113`); the privacy page's deletion
+  link points at feedback rather than account deletion.
+- [ ] ⬜ **P2** CSP permits inline scripts/styles, and 429 responses bypass CSP middleware.
+- [ ] ⬜ **P2** CI has no formatter, linter, type checker, dependency audit, JS tests, browser E2E, or
+  **Nginx integration test** — the last would have caught the `internal-media` P0 above.
+- [ ] ⬜ **P2** Dependencies not locked or hash-pinned; docs drifted (README, roadmap, test counts).
+
 ---
 
 ## 3. Audit findings NOT yet filed as issues (from the per-app audit docs)
@@ -130,9 +174,121 @@ Decide file-or-fix. None are the fixed ones.
 - [ ] **F6** — media ownership resolved by `photo__endswith` suffix match; availability/correctness bug (not a leak — verified). Key on the stored path.
 
 **Chronic Illness Tracker** ([audit](cit-blocker-audit-2026-07-23.md)):
-- [ ] **C2** — no idempotency on entry creation (`REV-01`); duplicate symptom/sleep/food entries **skew the correlation analysis** that is the app's point. Follow the dose-event natural-key pattern.
-- [ ] **C3** — 24h absolute session, no idle timeout (`SESS-05`). At the AAL2 ceiling; add idle only **after C1 ships** (it now has, #72).
-- [ ] **C5** — no auth-event history (login/password-change/export/session-terminate). The narrow, applicable slice of `AUDIT-01` for a single-user app.
+- [x] **C2** — no idempotency on entry creation (`REV-01`) → **[CIT#82](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/82) merged 2026-07-26**,
+  native client follows in [bas-apps#4](https://github.com/BeauAccessSolutions/bas-apps/pull/4).
+  Not the natural-key pattern the audit suggested: entries have no natural key, and every candidate
+  (user + timestamp + name) is a payload hash by another name, which cannot tell a retry from a real
+  second entry and so silently swallows real data — two doses an hour apart, the same symptom twice
+  in a flare. Instead a **client-minted key per submission attempt**, held across retries of that
+  attempt and cleared on success; `(userId, key) → entryId` written in the entry's own transaction.
+  **Fails open** (no key creates as before), which is what let the backend ship before the native
+  client and is why the rule "never block logging" survives. Reasoning and rejected alternatives in
+  CIT `docs/adr/009-entry-idempotency.md`.
+  Verified by reproducing the bug in a browser — patched `fetch` so the first save reached the
+  server and the reply was lost, then pressed Save again: one row where there would have been two —
+  plus 10 real-Postgres cases including the concurrent-duplicate race.
+  ✅ **Live**: deployment `d6c9bf2d` ACTIVE 2026-07-26 22:5xZ, `/api/health` 200. This one carried a
+  schema migration, applied by the app's `PRE_DEPLOY` job (`.do/app.yaml:50-59`) — a failed migrate
+  fails the deploy, so ACTIVE is real evidence it ran, not an inference from the health check.
+- [x] **C3** — 24h absolute session, no idle timeout (`SESS-05`) → **[CIT#82…#86](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/86)
+  merged and LIVE 2026-07-27** (deployment `0ec0c16c` ACTIVE, `/api/health` 200; the migration ran
+  in the pre-deploy job, so ACTIVE is evidence it applied).
+  **8h idle on top of the unchanged 24h absolute — not the 1h the guidance suggests.** Zach's call,
+  and the reasoning generalises to the other apps: pick the number from how the app is *used*, not
+  only from the AAL. CIT is opened in bursts across a day (morning doses, a symptom at lunch, the
+  evening check-in), so an hourly window would demand a password several times daily from someone
+  unwell — the friction the app exists to remove. Recorded beside the constant so nobody tightens it
+  without meeting the argument.
+  Implementation details worth copying: `lastSeenAt` defaults to `now()` so the deploy signs nobody
+  out; it is refreshed at most once per 5 min (validation runs on every authenticated render, and a
+  write per request buys minutes of precision on an 8h window); an idled-out row is **deleted**, not
+  just rejected. The sign-in screen now says why you are there and that drafts survived.
+  **This closes the CIT third of the platform P1 session-timeout item** — KA F3 and AA A1 remain,
+  and the matrix entry is still `status: proposed`.
+- [x] **C5** — no auth-event history → **[CIT#83](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/83)**.
+  `AuthEvent` records sign-in (password and platform), failed sign-in, password change, session
+  ended, other sessions ended, export created — and **the account can read its own history** in
+  Settings → Security, which is the half that makes it useful rather than merely compliant ("was
+  that export me?"). Three constraints worth carrying to other apps: a failed sign-in is recorded
+  **only against an account that exists** (otherwise the log becomes the enumeration artifact the
+  signup flow is designed not to leak); recording **never throws**, so it cannot fail the operation
+  it observes; 90-day retention **swept on write**, not by a scheduled job — this repo already has
+  two crons that no-op until their secrets are set, and a third would have been three.
+
+**Chronic Illness Tracker — closed 2026-07-26** (acute-capture audit + the Codex check-in findings;
+all four merged to `main` the same session, each with a real-Postgres or browser check, not just a
+green unit suite). **All four are live**: deployment `b1f3ccee` (commit `ee50955`, the last of them)
+went ACTIVE 22:06Z with `/api/health` 200:
+- [x] **F-1** PHI in production logs → [#78](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/78). See §6.
+- [x] **Codex check-in P0 — stale dose metadata** → [#79](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/79).
+  Prisma reads `undefined` as "leave this column alone", so `SKIPPED`/`RAN_OUT` → `TAKEN` stayed
+  *taken because they ran out*, and that contradiction was in the CSV people take to appointments.
+  Ships a data migration repairing existing rows (Zach approved the backfill in-PR). 5 of its 6
+  real-Postgres cases fail without the fix.
+- [x] **Codex check-in P0 — schedules generate no dose slots** → [#80](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/80).
+  BID/TID collapsed to one toggle (the two doses shared a row, so marking one overwrote the other);
+  WEEKLY appeared daily. Now one slot per dose. **Slots are ordinal, not clock times** — a
+  `RegimenItem` stores a schedule and no times, so labels are "1st dose"/"2nd dose"; "Morning"/
+  "Evening" would assert something the user never entered. Slot 1 keeps the `''` key every existing
+  row carries, so no dose history is orphaned. Verified in a browser, not only in tests.
+- [x] **F-7** acute flag in the URL → [#81](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/81).
+  `/log?acute=true` → `/log#reaction`; a fragment is never sent to the server. `?type=` deliberately
+  stays a query param — which form you opened is preference-level, the class the logger classifies
+  non-PHI.
+- **Not covered:** C2/C3/C5 above are untouched, and F-3/F-4/F-5/F-6 are native (`bas-apps`), not web.
+
+**Chronic Illness Tracker (native, `bas-apps`)** — all three PRs merged to `master` 2026-07-27,
+CI green on each:
+- [x] **F-6 — the app had no test suite at all** → [bas-apps#5](https://github.com/BeauAccessSolutions/bas-apps/pull/5).
+  `jest-expo` + `@testing-library/react-native`, 50 tests, and **the monorepo's first CI**
+  (typecheck + lint + test on every push and PR — there was none). This is the item that made the
+  others checkable: F-3/F-5 can now be fixed with a regression test attached.
+  Two facts that cost an hour each and are now in the repo README: **RTL v14's `render` is async**
+  (without the await nothing mounts and every query throws "`render` function has not been called",
+  which reads like a broken config), and React 19 renders through `act` only when
+  `IS_REACT_ACT_ENVIRONMENT` is set.
+  **Method note worth reusing:** each screen test was checked by re-introducing the defect it
+  describes. That found a test that could not fail — the "typing accumulates" case passes even with
+  the keystroke bug restored, because the symptom needs a real navigator — so it is now labelled a
+  sanity check, and the header-identity test is named as the actual guard. Do this before trusting
+  any new suite.
+- [x] **F-4 — no idempotency key on native saves** → [bas-apps#4](https://github.com/BeauAccessSolutions/bas-apps/pull/4),
+  the client half of CIT #82. Merged *with* the regression tests it originally lacked (added once #5
+  landed): the header is sent when supplied and omitted entirely when not, and the key holds across
+  a retry, changes after success, and matches the backend's `KEY_PATTERN`.
+- [x] **F-3 — review could not tell an acute capture from an ordinary symptom** and
+  **F-5 — nothing announced to a screen reader** → [bas-apps#6](https://github.com/BeauAccessSolutions/bas-apps/pull/6).
+  F-3 was a *parity regression*: an acute capture has no severity and no notes, so its row rendered
+  bare — the same symptom flagged mid-reaction and logged calmly hours later read identically, at
+  the one place someone reads their own history back. Marked with a **word**, not a tint, so it
+  survives being read aloud (WCAG 1.4.1).
+  **Divergence to settle in the design pass:** web tints this `warning`; the native palette has no
+  warning token, and inventing one means proving ≥4.5:1 against `card` in both themes, so `primary`
+  (already contrast-checked, reads as emphasis not alarm) was used instead of a guessed hex.
+  F-5's mechanism is worth carrying to any RN app: **`accessibilityRole="alert"` marks a trait and
+  does NOT speak** — unlike the web's `role="alert"` in a live region. Announcing is an explicit
+  `AccessibilityInfo` call, needs a delay (an announcement during a navigation transition is
+  swallowed on iOS), and should queue on iOS so an error cannot truncate a save. Applied to all
+  five entry screens, not just the audited one.
+  Both mutation-checked: reverting either fails 6 of 16 tests — possible only because F-6 landed first.
+- [x] Bottom tab bar had **no icons at all** (five labels in a row) → [bas-apps#3](https://github.com/BeauAccessSolutions/bas-apps/pull/3),
+  Ionicons, outline/filled for active state, labels kept. Reported as "upside down triangles" on
+  TestFlight; **that symptom was never reproduced from source** — expo-router 57's `Tabs` is the JS
+  navigator and renders `null` for an undefined icon, so this adds icons where there were none. If
+  triangles survive the next EAS build, they are something else and need a screenshot.
+  ~~Reaches TestFlight only via an **EAS build** — it ships font assets, so an OTA update will not
+  carry it.~~ **Wrong, corrected 2026-07-27.** `expo` already depends on `expo-font`, and it was in
+  the lockfile before the icon change — so that native module is in the installed build, and
+  `@expo/vector-icons` adds only JS plus font assets, which `expo-updates` delivers. **The icons can
+  ship over the air.** The rule to apply is "new *native code* needs a build", not "new assets do";
+  check whether the native module is already present before assuming a rebuild.
+  **Shipped by OTA 2026-07-27** (update group `c4c2dddd`, branch/channel `production`, runtime
+  1.0.0 — matching build 22) together with F-3, F-4 and F-5. Verified rather than assumed: the CLI
+  printed "Uploading assets skipped - no new assets found", which reads like the font was omitted,
+  but `dist/assetmap.json` for the published group lists `Ionicons.ttf` — EAS had simply seen those
+  hashes before. Check the assetmap, not the upload line.
+  ⏳ **Not yet confirmed on device:** whether the icons render, and whether the reported "upside
+  down triangles" are gone (that symptom was never reproduced from source).
 
 **Access Atlas** ([audit](access-atlas-blocker-audit-2026-07-23.md)):
 - [ ] **A1** — 30-day sessions at the AAL1 ceiling; complicated by the access-identity (disability) tag. AAL/counsel call — see P1.
@@ -150,12 +306,72 @@ Decide file-or-fix. None are the fixed ones.
 - [x] ✅ **X1** content under status bar → fixed ×4 (§0).
 - [ ] 🟡 **X2/X3** error states & data loss: KA send-failure (#20) and CIT drafts (#72) done; **not done** —
   the shared error-state component (real message + preserved input + working recovery + `role="alert"`),
-  Atlas CSRF blank error page, CIT sign-in error screen, and **KA sign-out-mid-compose** (the composer is
+  Atlas CSRF blank error page, and **KA sign-out-mid-compose** (the composer is
   still the only copy of un-sent text at logout — #20 covers send, not this).
+  **CIT's sign-in error screen is done** ([#84](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/84)):
+  real message, both fields preserved, the unverified case offers the resend control inside the same
+  announced region — and never parks that control in the tab order for people not in that state.
+> **CIT's §4 items are done and live** — deployment `b8229860` (commit `aca68ab`, containing #84 and
+> #85) went ACTIVE 2026-07-27 with `/api/health` 200. X4 and X7 were never CIT findings; X1 closed in
+> §0. So §4 now holds nothing for CIT: what remains here is KA, BN and Atlas.
+>
+> **Reopened the same day (2026-07-27):** X5 turned out not to be closed for CIT — see the amendment
+> under X5. Unshipped work sits on `claude/nice-poincare-1cf130`, pushed, PR not yet opened.
+
+- [ ] 🔴 **CIT web had no sign-out control at all (found 2026-07-27, fix on branch).** Not on any
+  audit list — every list assumed the control existed and asked whether it behaved. `POST
+  /api/auth/logout` worked, was tested, cleared the cookie and (since #83) recorded `SESSION_ENDED`;
+  nothing in `src/**/*.tsx` ever called it, and `nav.logout` sat in the catalog unreferenced. So the
+  only way out of a session was to wait 24h — 8h idle since #86 — which is the exact scenario C3 was
+  raised for. The native app has had sign-out since it shipped, so this read as covered from the
+  platform view. **Detector worth running in KA, BN and Atlas: for every auth/destructive endpoint,
+  grep the client for a call site.** A translated string with no reference is the cheap version of the
+  same check. Fix on `claude/nice-poincare-1cf130`: control in both nav surfaces, clears local drafts
+  (PHI in `localStorage`) only on a confirmed success — the web session is an httpOnly cookie, so
+  unlike native there is no local fallback, and navigating away on a failed request would tell
+  someone they were signed out on a computer where they were not. Sign-out is now covered in
+  `tests/e2e/critical-paths.test.ts` even though CLAUDE.md's list does not name it.
+
 - [ ] **X4** internal copy leaking to users: KA Jinja comment renders as body text; Atlas design-rationale
   copy; BN raw markdown (same as BN #1 below). Grep each codebase for developer commentary in user strings.
 - [ ] **X5** header/nav bloat (all four) — collapse to hamburger/bottom-tab below a breakpoint; shorten wordmarks.
+  **CIT done** ([#85](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/85)): it already
+  collapsed to a hamburger under `md`, so only the wordmark was outstanding — phones now show the
+  `shortName` already shipped for the iOS home-screen icon. Worth carrying to the other three: the argument
+  that decided it was not bar space but that **a phone screen is read by more people than its owner**, and
+  "Chronic" tells a waiting room less than "Chronic Illness Tracker". KA/BN/Atlas still open.
+  **Amended 2026-07-27 — "collapses under `md`" was true and was the wrong breakpoint.** Adding a
+  sign-out control (below) put the CIT bar over capacity between 768 and ~878px: the wordmark,
+  "Reaction now", "Check-in" and "Sign out" all broke onto two lines. Measured rather than eyeballed,
+  and the measurement is the point — **the threshold is language-dependent.** English needed 808px;
+  the same bar with the Spanish catalog needed ~910px, because "Configuración" and "Cerrar sesión"
+  are half again as long. Every locale would have had its own broken range, and the fix that looks
+  obvious — tighten the padding — is bounded by the 44px target floor ("Log" is already at it). CIT's
+  laid-out nav now starts at `lg` and everything below it lives in the menu, on branch
+  `claude/nice-poincare-1cf130` (PR not yet opened).
+  Four things to carry to KA/BN/Atlas when their turn comes:
+  1. **Measure the wrap threshold in a browser, in the longest target language, not English.** A
+     breakpoint chosen against English ships a broken bar in every other locale. Method that worked:
+     resize the real viewport and count `Range.getClientRects().length` per label — shrinking a
+     container's `max-width` to simulate a narrow screen does **not** re-evaluate media queries and
+     gives a confidently wrong number.
+  2. **Exempt the emergency path from the collapse.** CIT keeps acute capture in the bar at every
+     width; only ordinary destinations moved behind the menu. Whatever the equivalent is per app
+     (KA's report control, BN's assistant), it should not gain a tap.
+  3. **Assert the toggle and the laid-out nav are exact complements** (`lg:hidden` / `lg:flex`). Drift
+     between them opens a width with no way to reach anything, and nothing else catches it.
+  4. **Give translators a label length budget in the brief**, not a bug report later. CIT's is in
+     `locales/TRANSLATION_NOTES.md`: ~55 characters for the six nav labels plus sign-out (English 42,
+     Spanish 54), because at `lg` the bar is capped at 1024px and Spanish already wants ~1035px of it.
 - [ ] **X6** screen-reader announcement of errors — audit; ensure `role="alert"`/`aria-live` on error paths.
+  **CIT done** ([#84](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/84)) — and the
+  finding is more specific than the item reads. The regions *had* `role="alert"`; they were written
+  `{error && <p role="alert">{error}</p>}`, so the region and its text were created in the same instant,
+  which is **silent** to a screen reader. Auditing for the attribute would have passed all 15 of them.
+  Grep the other three for that shape, not for missing roles. A source-scanning test now guards CIT's.
+  Two things axe found that reading did not: `autocomplete="username email"` is invalid (one field name,
+  not two) so password managers had stopped filling — check the other apps' login forms — and an error
+  boundary that replaces the page in place announces nothing, because no navigation happens.
 - [ ] **X7** KA icon-only controls without accessible names (green dot, dark dot, ⋮, ✓) — `aria-label` + legend.
 
 **VA Benefits Navigator** (confirmed against screenshots):
@@ -195,6 +411,101 @@ Decide file-or-fix. None are the fixed ones.
 - [ ] ⏳ **P5 minors / age-of-majority** — `pending_counsel`; the [minors-delegation brief](../legal/minors-delegation-counsel-brief.md).
   Includes the **KindredAccess age posture** (18+ by a self-attested checkbox + typed integer, no verification, while the
   safety apparatus assumes minors may be present — both can't be load-bearing).
+
+---
+
+## 6. Log & exception PII/PHI hygiene — cross-app sweep (opened 2026-07-26)
+
+**Origin.** A CIT vertical-slice audit found a PHI boolean logged under an *abbreviated key*
+(`isAcute` for `isAcuteCapture`), which defeats CIT's field-name redaction allowlist by construction
+and is invisible to `phi-fields-drift.test.ts` because that test reconciles **Prisma columns**, not
+log call sites. Confirmed live at web production `51afc45`. See
+[cit-acute-capture-audit-2026-07-26.md](cit-acute-capture-audit-2026-07-26.md).
+
+**Why this is a platform item, not a CIT bug.** [`INVARIANTS.md`](../../INVARIANTS.md) has no
+invariant governing what an app writes to its own logs — "no PHI in logs" exists only as *CIT's*
+app-level non-negotiable #3. And a grep across every BAS repo found **CIT is the only app with any
+redaction layer at all.** Two apps independently built a schema-shaped guard (CIT's drift test, BN's
+`check_security_invariants.py` Check 1) and **both have the same blind spot**: they inspect field
+definitions, never the log or exception surface.
+
+- [ ] ⬜ **Platform — add invariant #6, log hygiene**, enforced by construction per that document's
+  own standard. For logs that means a lint rule over `logger.*` payload keys and `str(e)`/`{e}`
+  interpolation — a schema-based check provably cannot catch a call-site rename.
+- [ ] ⬜ **Platform — promote CIT's `src/lib/logger` to a shared package.** Its `scrubString()` was
+  built for exactly the exception-passthrough class found in BN, and today one app has it.
+
+Per-app status — **only BN has been swept; the rest are unexamined, not clean:**
+
+- [x] **Benefits Navigator — swept 2026-07-26, then independently re-found by a Codex audit.** Own
+  logging is disciplined (325 call sites; the 20 user-adjacent ones log ids/counts/lengths, not
+  content), `send_default_pii=False` is set and CI-guarded. Residual risk is third-party exception
+  text: Sentry stack-frame locals (`include_local_variables` unset → SDK default `True`, independent
+  of `send_default_pii`), plus 8 `str(e)` interpolations. **Codex confirmed it at `settings.py:696`,
+  closed our open question — the *installed* SDK defaults locals capture on — and widened the
+  surface: every Celery task frame retains OCR text and document analysis, not just the two
+  `ocr_service` sites.** Filed in [BN `TODO.md`](../../../benefits-navigator/TODO.md) with fixes.
+- [x] **Chronic Illness Tracker — swept 2026-07-26; fix MERGED to `main` 2026-07-26 (deploys on push).**
+  **CIT has no Sentry or any error-reporting SDK**, so the `include_local_variables` defect that hit
+  BN, KA and (differently) page-repair does not apply here — CIT's variant was the `isAcute` rename.
+  **[CIT#78](https://github.com/BeauAccessSolutions/Chronic-Illness-Tracker/pull/78)
+  (`fix/log-payload-fail-closed`, `df7b616`) fixes it, and fixes it better than recommended:** the
+  runtime now **fails closed** on an allowlist (`SAFE_LOG_KEYS`) instead of a PHI denylist, so an
+  unknown key is redacted by default and a rename cannot defeat it *by construction*. Adds
+  `tests/unit/log-call-site-keys.test.ts`, which reads `logger.*` call sites — the layer
+  `phi-fields-drift.test.ts` structurally cannot see — and handles un-analysable spread payloads via a
+  `REVIEWED_SPREADS` allowlist that fails until each is deliberately listed.
+  **#78 merged 2026-07-26 21:00Z** (squash, CI green). The guard was mutation-tested before merge:
+  re-introducing the exact leak fails the new test with `…/symptoms/route.ts:87 → isAcute`. Three
+  generic neighbouring keys were renamed rather than allow-listed (`type` → `insightType`, `subject`
+  → `emailSubject`, `categories` → `safetyCategories`), on the reasoning that generic names are
+  precisely the ones that get reused for health content later.
+  ✅ **Deployed.** DO deployment `c8c7c16a` (commit `d8d6529`, which contains the F-1 fix) reached
+  **ACTIVE** 2026-07-26 21:48Z and `/api/health` returns 200. Note the deploy for `747468a` (#78
+  itself) shows CANCELED — superseded by the next push, not failed; every deploy builds the whole
+  tree, so the fix went live in its successor. **F-1 is out of production.**
+- [x] **KindredAccess — swept 2026-07-26.** Own logging is **clean**: all 55 `core/` call sites log
+  identifiers, never content, and `photo_moderation.py:274` already uses `type(exc).__name__` over
+  `str(exc)`. The gap is Sentry: `send_default_pii=False` is set but `include_local_variables` is
+  unset (SDK default on, independent setting), and `LoggingIntegration(event_level='ERROR')`
+  promotes every `logger.error`/`exception` to an event. `core/consumers.py:553-563` binds `body`
+  two lines above a `logger.exception` in the message-create path → a DB error while sending a chat
+  message serializes the **message body** to Sentry. **Worse-positioned than BN's**, which needed an
+  unhandled exception to reach Sentry at all. Filed in
+  [KA `docs/audits/LOG_PII_SENTRY_AUDIT_2026-07-26.md`](../../../kindredaccess_files/docs/audits/LOG_PII_SENTRY_AUDIT_2026-07-26.md).
+  *Pass carries no test/dependency signal — both declined as writes under a read-only budget.*
+
+> **Three apps, three hits, two independent auditors: the leak is never the log statement.** BN and
+> KA both write disciplined log calls and both ship frame locals to Sentry with
+> `send_default_pii=False` set and `include_local_variables` unset; a separate Codex audit re-found
+> it in BN without seeing this sweep. `send_default_pii` governs request bodies, cookies and user
+> identifiers — **it does not touch frame locals**, and every team here has read it as though it
+> does. Treat this as one portfolio-wide config defect, not N app bugs, and **check the
+> error-reporter config before auditing any app's log statements** — doing it in that order would
+> have cut both of our sweeps to a fraction of the work.
+>
+> - [ ] ⬜ **Add to `check_security_invariants.py`-style gates in every app:** fail the build if
+>   `sentry_sdk.init` omits `include_local_variables=False`, and pin `sentry-sdk` exactly so the
+>   default cannot shift underneath the decision.
+- [ ] ⬜ **Disability Wiki** — 16 log call sites, no redaction layer. Unexamined.
+- [x] **page-repair — swept 2026-07-26.** [Full audit](../../../page-repair/docs/audit-2026-07-26.md).
+  **Strongest codebase of the six**; no P0/P1. Logging is counts-only except one site:
+  `proxy/src/index.ts:299-300` logs the upstream Anthropic error body (300 chars, 100% sampling), and
+  4xx bodies can quote the request — whose prompt carries allowlisted `href`/`innerHtml`/`nearbyText`.
+  **P2 not P1** because `sanitizeContext` allowlists and length-caps before the prompt is built, so
+  the worst case is a few hundred chars of structured control context, not a whole document.
+  Second finding, same weight: the refund closure is `.catch(() => {})`, so a failed refund on the
+  money path silently costs a user a paid credit with no log or retry.
+  ⚠️ **Correction:** this entry previously said page-repair has "no test config." It does have tests
+  (`npm test` → a Node harness); the claim came from globbing for jest/vitest/pytest only.
+- [ ] ⬜ **Access Atlas** — has `moderation.ts`/`photo-reports.ts` redaction-adjacent code but no
+  logger scrubber. Account-free browsing limits exposure; still unexamined.
+- [ ] ⬜ **bas-apps (native)** — `@bas/api`, `@bas/auth` and the CIT client have no scrubber, and the
+  monorepo has **no test config at all**, so nothing here is regression-guarded.
+
+> **Method note.** The per-app counts above are call-site counts, not leak counts — I counted, I did
+> not read them (BN excepted). They establish that no mechanism would stop a leak, not that one has
+> occurred. Do not downgrade any ⬜ to "clean" without reading its sites.
 
 ---
 

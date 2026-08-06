@@ -579,3 +579,21 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - [staticfiles manifest]: BN `main` was red (missing manifest for tailwind.min.css) and every BN branch inherited it → not a regression I introduced; fixed separately in #64, noted on each BN PR.
 
 ---
+
+## Session: 2026-07-26
+
+**Project:** bas-platform (cross-repo audit sweep: CIT, BN, KA, page-repair)
+
+### Failures
+- vertical-slice audit (CIT acute capture): audited a stale checkout — `4a5ef1b` while the shipped OTA was `68ab379`. Produced a confident P0 about a bug already fixed upstream → Phase 0 of the audit skill is now BLOCKING and checks provenance in *both* directions.
+- vertical-slice audit (CIT link 2): scored a Cancel button PASS because it was present in the JSX. `presentation:'modal'` suppressed the whole header so it never rendered and users were trapped → skill now forbids PASS on render-dependent links in a static pass.
+- KA report/block audit: grepped `core/views.py` for `ratelimit|throttle`, found nothing, filed issue #26 claiming no rate limiting. `RateLimitMiddleware` gave `/report/` a dedicated 5/min per-user bucket with a comment naming the exact threat model → issue retracted and closed invalid; skill gained a "search every layer before calling it missing" rule.
+- KA issue #25: overstated the failure scenario (10 MB description) by missing a global `DATA_UPLOAD_MAX_MEMORY_SIZE` 5 MB cap in settings → corrected on the issue. Same root cause as above.
+- KA provenance: reported "clean" having only checked that the checkout *contains* production, never what production *lacks*. It lagged `main` by four merged fixes incl. a staff-media audit log → both-directions check added to the skill.
+- CIT F-1 branch survey: wrote a loop that printed "FIXED" both when a fix existed and when `git show` failed. It reported F-1 fixed on ~20 branches while a direct command showed it live on `main` → re-ran with `git grep`, which fails loudly. **A check whose failure mode is indistinguishable from its positive finding is worse than no check.**
+- zsh: `for d in $DIRS` does not word-split — a whole-repo sweep returned 0 for every directory and read as a clean result → use explicit args; noted in the skill.
+- zsh globs (×2): unquoted `core/tests/*report*` and `~/.claude/shared/*.py` aborted the command before it ran; both would have read as "no results". Caught by the null-result hook both times.
+- `timeout` prefix: not present on macOS, exits 127 and reads as the wrapped command failing → use the Bash tool's native timeout parameter.
+- page-repair provenance: reported three GitHub owners as a mystery. The repo had been *transferred*; the old path is a redirect. Surfaced only when `gh pr create` targeted an owner I hadn't named → shared LESSONS entry extended.
+
+---
