@@ -78,11 +78,28 @@ done
 # Which GitHub identity is answering. This machine has more than one account in
 # the gh keyring, and the inactive one cannot see several of these repos — so the
 # account in effect is part of the reading, not trivia.
+#
+# BAS work runs as Beaudoin0zach, always (owner decision 2026-08-17 — never
+# LangworthyWatch). The keyring's active account flips when other projects
+# switch it, so enforce rather than warn: auto-switch here, before any query.
+BAS_GH_USER="Beaudoin0zach"
 UNREADABLE_ANY=0
 GH_ACCOUNT="unknown"
 if command -v gh >/dev/null 2>&1; then
   if [ "$DO_NET" -eq 1 ]; then
-    GH_ACCOUNT="$(gh api user --jq .login 2>/dev/null || echo 'not-authenticated')"
+    GH_ACCOUNT="$(gh api user --jq .login 2>/dev/null || true)"
+    # On an API failure gh can emit its error body to stdout — a GitHub login is
+    # a single [A-Za-z0-9-] token, so anything else means we don't know who we are.
+    case "$GH_ACCOUNT" in
+      *[!A-Za-z0-9-]*|'') GH_ACCOUNT="not-authenticated" ;;
+    esac
+    if [ "$GH_ACCOUNT" != "$BAS_GH_USER" ]; then
+      if gh auth switch --hostname github.com --user "$BAS_GH_USER" >/dev/null 2>&1; then
+        GH_ACCOUNT="$BAS_GH_USER (auto-switched from $GH_ACCOUNT)"
+      else
+        GH_ACCOUNT="$GH_ACCOUNT (⚠ NOT $BAS_GH_USER and auto-switch failed — run: gh auth login --hostname github.com)"
+      fi
+    fi
   else
     GH_ACCOUNT="not-checked (--no-net)"
   fi
