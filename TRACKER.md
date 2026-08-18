@@ -30,9 +30,9 @@ things move — this is the single place to see where everything stands.
   `LangworthyWatch/page-repair`, a private wrong-account copy readable only by that account (which
   is why it 404'd when tested from `Beaudoin0zach` on 2026-07-26). Migrated: ported to
   [BeauAccessSolutions/page-repair#8](https://github.com/BeauAccessSolutions/page-repair/pull/8)
-  (open, URLs updated for the org move), LW#1 closed, the LW copy archived, and the
-  `langworthywatch` remote removed from the local checkout — `platform-status.sh` now reads a
-  single namespace, under the Beaudoin0zach-only account policy it auto-enforces.
+  (open, URLs updated for the org move), LW#1 closed, the LW copy deleted by the owner (verified),
+  and the `langworthywatch` remote removed from the local checkout — `platform-status.sh` now reads
+  a single namespace, under the Beaudoin0zach-only account policy it auto-enforces.
 
 ---
 
