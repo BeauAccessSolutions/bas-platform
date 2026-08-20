@@ -78,14 +78,13 @@ unenforced, with test paths). That inventory used to be duplicated here; §4.1's
 current, so it was deduped out on 2026-07-29. What's kept below is what §4.1 can't hold: **how each
 contract actually broke**, and the sweep techniques no contract row covers.
 
-- **New native *code* needs a build; new *assets* do not.** Adding `@expo/vector-icons` to CIT/Baseline
-  I asserted — in a PR body, the remediation tracker and project memory — that the tab icons could only
-  reach TestFlight via an EAS build because they ship a `.ttf`. False: `expo` already depended on
-  `expo-font` before the change, so the native module was in the shipped build and `expo-updates`
-  delivers assets; everything pending went out over the air. → Check the needed native module is already
-  shipped (`git show <pre-change-ref>:pnpm-lock.yaml | grep <module>`), and verify the publish from
-  `dist/assetmap.json`, not the CLI: `eas update` prints "Uploading assets skipped - no new assets found"
-  when it has merely seen those hashes, which reads exactly like an omitted asset. (bas-apps/CIT, 2026-07-27)
+- **New native *code* needs a build; new *assets* do not.** Adding `@expo/vector-icons` I asserted — in
+  a PR body, the tracker and project memory — that tab icons could only reach TestFlight via an EAS
+  build because they ship a `.ttf`. False: `expo` already depended on `expo-font`, so the native module
+  was in the shipped build and `expo-updates` delivers assets. → Check the needed native module is
+  already shipped (`git show <ref>:pnpm-lock.yaml | grep <module>`), and verify the publish from
+  `dist/assetmap.json`, not the CLI: `eas update` prints "Uploading assets skipped - no new assets
+  found" when it has merely seen those hashes, which reads exactly like an omission. (bas-apps/CIT, 2026-07-27)
 
 - **C1 — how it broke, twice.** page-repair routed labeling errors, extension errors and clipboard
   failures through the same polite `role="status"` region as the success summary, so a failure queued
@@ -108,17 +107,15 @@ contract actually broke**, and the sweep techniques no contract row covers.
   trap for a `role="log"` transcript that already voices incoming messages. Note KA's gate is a regex
   over three named node ids: blind to a fourth indicator, nested regions, or `role="log"`. (kindredaccess, 2026-07-13)
 
-- **C4 — a token-hex contrast sweep has three blind spots.** page-repair's options page declared no
-  `color-scheme` at all, so its dark theme was never verified; but even a token sweep misses three
-  things, all found on bas-website and now gated by its `test/contrast.mjs` (both themes, wired into the
-  build command so a regression can't publish): (a) a token *used but never defined* emits no CSS and
-  fails silently — scan that every `text-|bg-|border-<family>-<step>` resolves to a `--color-` var; (b)
-  `/opacity` backgrounds are distinct pairs — alpha-composite before comparing (body text was clean on
-  white, 3.93:1 on a 30% tint); (c) a sweep only checks pairs someone listed, so a second theme audits
-  the *pair list itself* — dark mode surfaced a light-theme logo failure two prior sweeps had missed.
+- **C4 — a token-hex contrast sweep has three blind spots**, all found on bas-website and now gated by
+  its `test/contrast.mjs` (both themes, wired into the build so a regression can't publish): (a) a token
+  *used but never defined* emits no CSS and fails silently — scan that every
+  `text-|bg-|border-<family>-<step>` resolves to a `--color-` var; (b) `/opacity` backgrounds are
+  distinct pairs — alpha-composite before comparing (body text was clean on white, 3.93:1 on a 30%
+  tint); (c) a sweep only checks pairs someone listed, so a second theme audits the *pair list itself*.
   Corollary: **half a theme is worse than none** — migrate raw `text-gray-*`/`bg-white` to a semantic
-  layer (canvas/surface/ink/…/on-accent) first, or dark mode leaves half the page light; `text-white` on a
-  button is the killer (in dark the accent lightens, its label must go near-black). (bas-website, 2026-07-13/19)
+  layer first, or dark mode leaves half the page light; `text-white` on a button is the killer (in dark
+  the accent lightens, its label must go near-black). (bas-website, 2026-07-13/19)
 
 ## Django backends (BN + KindredAccess)
 
