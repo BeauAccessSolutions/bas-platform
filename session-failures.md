@@ -597,3 +597,19 @@ product code. When a brand-new harness reports a failure, suspect the harness fi
 - page-repair provenance: reported three GitHub owners as a mystery. The repo had been *transferred*; the old path is a redirect. Surfaced only when `gh pr create` targeted an owner I hadn't named → shared LESSONS entry extended.
 
 ---
+## Session: 2026-08-21
+
+**Project:** bas-platform (marketing site apex cutover, page-repair PR queue + proxy migration)
+
+### Failures
+- Cloudflare Pages domains: reported the two custom domains as "detached from the project" after a listing came back empty. The wrangler OAuth token had **expired mid-session** — the API returned an empty `result` and my loop printed nothing, which is indistinguishable from deletion. They had been attached the whole time; the re-add failing with *"You have already added this custom domain"* was the first honest signal → refresh the credential and print `success`/`errors` before iterating `result`. Added to null-result-guard as item 10.
+- apex cutover verification (×2): told the user the cutover "hasn't taken effect" and sent them back to redo finished work. **My local resolver was still returning the old Netlify IP** (`75.2.60.5`) for an hour after authoritative DNS had changed; `curl` connected to Netlify every time. Only `curl -w '%{remote_ip}'` + `--resolve` exposed it → authoritative `dig` and connected-IP checks before reporting any DNS/deploy change as failed. Added to null-result-guard as item 11.
+- marketing-site diagnosis: called the stale site "a GitHub→Pages hook that died silently, same class as disability-wiki." It was **never connected** — the project is Direct Uploads, which the API refuses to attach a repo to (`8000069`). Spent the session hunting a webhook that never existed → `wrangler pages project list` shows a Git Provider column; check project *type* before diagnosing a non-firing deploy. Added to the wrangler skill.
+- `wrangler kv namespace create`: failed with `Authentication error [code: 10000]` while `whoami` reported the correct account. Wrangler resolves the target account from a **cached selection independent of the credential**, and the request had gone to the *old* account → `CLOUDFLARE_ACCOUNT_ID` to force it, then `account_id` pinned in `wrangler.jsonc` permanently. Added to the wrangler skill.
+- contact-function review: claimed a missing API key would make the form "silently eat messages." It already returned a 502 with the provider reason logged and withheld — it fails honestly. The real gaps were narrower (wrong *advice* for a config error, and no fallback address) → read the error path before characterising it; corrected in the PR body rather than shipping the wrong rationale.
+- `node -c ""`: with no file argument this reads **stdin** and hung until the 2-minute tool timeout → `node --check <file>`.
+- nested `for` loop: `curl` resolved as "command not found" inside a doubly-nested loop despite being on PATH → used the absolute `/usr/bin/curl` for the rest of the session.
+- handed the user `read -rs CF_DNS_TOKEN` with **no prompt string**, so the terminal sat at a blank cursor looking hung and they could not tell whether to type or wait → always `read -rsp "label: "`; a silent prompt is an unusable instruction.
+- `tsc --noEmit` on a single Worker file: reported three errors (`.includes`, `FormData.entries`) that were artifacts of the default ES5 lib, not real → pass `--target/--lib` matching the runtime before reading a standalone typecheck as signal.
+
+---
